@@ -8,7 +8,7 @@ print("Executing Margin BUY order script...")
 
 try:
     # Step 1: Read API keys from the JSON file
-    with open("../BINANCE/api-key.json", "r") as file:
+    with open("../../dist/apikey-binance.json", "r") as file:
         api_keys = json.load(file)
     
     api_key = api_keys['key']
