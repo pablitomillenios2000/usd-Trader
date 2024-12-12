@@ -96,6 +96,7 @@ function plotData() {
             type: 'scatter',
             name: 'Untouched Portfolio Value',
             yaxis: 'y2',
+            line: { color: 'darkblue' },
         };
         traces.push(untouchedPortfolioTrace);
 
@@ -121,7 +122,7 @@ function plotData() {
                 type: 'scatter',
                 name: 'EMA Micro',
                 yaxis: 'y1',
-                line: { color: 'purple', shape: 'spline' },
+                line: { color: 'orange', shape: 'spline' },
             };
             traces.push(emaMicroTrace);
         }
