@@ -1,14 +1,14 @@
 function plotData() {
-    // New variables to skip loading EMA files and asset
-    const loadEMA = false;       // Set to false to skip loading expma.txt
-    const loadEMAMicro = true;  // Set to false to skip loading expma_micro.txt
+    // Variables to skip loading certain files
+    const loadEMA = true;       // Set to false to skip loading expma.txt
+    const loadEMAMicro = false;  // Set to false to skip loading expma_micro.txt
     const loadAsset = false;     // Set to false to skip loading asset.txt
 
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
 
     // Variable to control logarithmic scale
-    const logarithmic = true; // Set to true to use logarithmic scale for portfolio value
+    const logarithmic = false; // Set to true to use logarithmic scale for portfolio value
 
     // Variable to toggle the display of the margin data
     const showMargin = false; // Set to true to display the margin data
@@ -47,7 +47,7 @@ function plotData() {
     let skipTrades = false; // Flag to skip processing trades if line count exceeds 3000
 
     let datasetsLoaded = {
-        asset: !loadAsset,  // If loadAsset is false, consider asset already "loaded" (skipped)
+        asset: !loadAsset,
         portfolio: false,
         untouchedPortfolio: false,
         ema: !loadEMA,
@@ -84,7 +84,7 @@ function plotData() {
             type: 'scatter',
             name: 'Portfolio Value',
             yaxis: 'y2',
-            line: { color: 'green' },
+            line: { color: 'orange' },
         };
         traces.push(portfolioTrace);
 
@@ -96,7 +96,9 @@ function plotData() {
             type: 'scatter',
             name: 'Untouched Portfolio Value',
             yaxis: 'y2',
-            line: { color: 'darkblue' },
+            line: {
+                color: 'darkblue'
+            }
         };
         traces.push(untouchedPortfolioTrace);
 
@@ -122,7 +124,7 @@ function plotData() {
                 type: 'scatter',
                 name: 'EMA Micro',
                 yaxis: 'y1',
-                line: { color: 'orange', shape: 'spline' },
+                line: { color: 'purple', shape: 'spline' },
             };
             traces.push(emaMicroTrace);
         }
@@ -141,9 +143,13 @@ function plotData() {
             traces.push(marginTrace);
         }
 
-        // Buy/Sell trades if not in log mode
         const annotations = [];
-        if (!logarithmic && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
+        const totalTrades = buyTimestamps.length + sellTimestamps.length;
+
+        // Show trades in log mode only if totalTrades <= 100
+        const showTrades = (totalTrades <= 100) || !logarithmic;
+
+        if (showTrades && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
             const buyTrace = {
                 x: buyTimestamps,
                 y: buyValues,
