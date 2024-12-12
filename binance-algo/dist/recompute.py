@@ -15,6 +15,7 @@ os.system("python3 ./compute_trades_trailsl_localmin.py")
 # os.system("python3 ./compute_margin_requirement.py")
 os.system("python3 ./compute_unt_portfolio.py")
 os.system("python3 ./compute_final_portfolio.py")
+os.system("python3 ./execute_orders.py")
 
 # Stop the timer
 end_time = time.time()
