@@ -1,7 +1,7 @@
 function plotData() {
     // New variables to skip loading EMA files and asset
-    const loadEMA = true;       // Set to false to skip loading expma.txt
-    const loadEMAMicro = false;  // Set to false to skip loading expma_micro.txt
+    const loadEMA = false;       // Set to false to skip loading expma.txt
+    const loadEMAMicro = true;  // Set to false to skip loading expma_micro.txt
     const loadAsset = false;     // Set to false to skip loading asset.txt
 
     // Set the slope display interval
@@ -84,7 +84,7 @@ function plotData() {
             type: 'scatter',
             name: 'Portfolio Value',
             yaxis: 'y2',
-            line: { color: 'orange' },
+            line: { color: 'green' },
         };
         traces.push(portfolioTrace);
 
