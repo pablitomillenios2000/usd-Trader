@@ -1,4 +1,9 @@
 function plotData() {
+    // New variables to skip loading EMA files and asset
+    const loadEMA = true;       // Set to false to skip loading expma.txt
+    const loadEMAMicro = false;  // Set to false to skip loading expma_micro.txt
+    const loadAsset = false;     // Set to false to skip loading asset.txt
+
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
 
@@ -42,11 +47,11 @@ function plotData() {
     let skipTrades = false; // Flag to skip processing trades if line count exceeds 3000
 
     let datasetsLoaded = {
-        asset: false,
+        asset: !loadAsset,  // If loadAsset is false, consider asset already "loaded" (skipped)
         portfolio: false,
         untouchedPortfolio: false,
-        ema: false,
-        emaMicro: false,
+        ema: !loadEMA,
+        emaMicro: !loadEMAMicro,
         emaSlopes: slopeDisplayInterval === 0 ? true : false,
         trades: false,
         margin: !showMargin,
@@ -56,15 +61,22 @@ function plotData() {
     let fourBillionValue = null;
 
     function createChart() {
-        const assetTrace = {
-            x: timestampsAsset,
-            y: valuesAsset,
-            mode: 'lines',
-            type: 'scatter',
-            name: 'Asset Price',
-            yaxis: 'y1',
-        };
+        const traces = [];
 
+        // Only add the asset trace if asset was loaded
+        if (loadAsset && timestampsAsset.length > 0) {
+            const assetTrace = {
+                x: timestampsAsset,
+                y: valuesAsset,
+                mode: 'lines',
+                type: 'scatter',
+                name: 'Asset Price',
+                yaxis: 'y1',
+            };
+            traces.push(assetTrace);
+        }
+
+        // Portfolio trace
         const portfolioTrace = {
             x: timestampsPortfolio,
             y: valuesPortfolio,
@@ -74,7 +86,9 @@ function plotData() {
             yaxis: 'y2',
             line: { color: 'orange' },
         };
+        traces.push(portfolioTrace);
 
+        // Untouched portfolio trace
         const untouchedPortfolioTrace = {
             x: timestampsUntouchedPortfolio,
             y: valuesUntouchedPortfolio,
@@ -83,69 +97,73 @@ function plotData() {
             name: 'Untouched Portfolio Value',
             yaxis: 'y2',
         };
+        traces.push(untouchedPortfolioTrace);
 
-        const emaTrace = {
-            x: timestampsEMA,
-            y: valuesEMA,
-            mode: 'lines',
-            type: 'scatter',
-            name: 'EMA',
-            yaxis: 'y1',
-            line: { color: 'black', shape: 'spline' },
-        };
+        // Only add EMA traces if they were loaded
+        if (loadEMA && timestampsEMA.length > 0) {
+            const emaTrace = {
+                x: timestampsEMA,
+                y: valuesEMA,
+                mode: 'lines',
+                type: 'scatter',
+                name: 'EMA',
+                yaxis: 'y1',
+                line: { color: 'black', shape: 'spline' },
+            };
+            traces.push(emaTrace);
+        }
 
-        const emaMicroTrace = {
-            x: timestampsEMAMicro,
-            y: valuesEMAMicro,
-            mode: 'lines',
-            type: 'scatter',
-            name: 'EMA Micro',
-            yaxis: 'y1',
-            line: { color: 'purple', shape: 'spline' },
-        };
+        if (loadEMAMicro && timestampsEMAMicro.length > 0) {
+            const emaMicroTrace = {
+                x: timestampsEMAMicro,
+                y: valuesEMAMicro,
+                mode: 'lines',
+                type: 'scatter',
+                name: 'EMA Micro',
+                yaxis: 'y1',
+                line: { color: 'purple', shape: 'spline' },
+            };
+            traces.push(emaMicroTrace);
+        }
 
-        const marginTrace = {
-            x: timestampsMargin,
-            y: valuesMargin,
-            mode: 'lines',
-            type: 'scatter',
-            name: 'Margin',
-            yaxis: 'y2',
-            line: { color: 'red' },
-        };
-
-        const buyTrace = {
-            x: buyTimestamps,
-            y: buyValues,
-            mode: 'markers',
-            type: 'scatter',
-            name: 'Buy Trades',
-            marker: { color: 'green', size: 10 },
-            yaxis: 'y2',
-        };
-
-        const sellTrace = {
-            x: sellTimestamps,
-            y: sellValues,
-            mode: 'markers',
-            type: 'scatter',
-            name: 'Sell Trades',
-            marker: { color: 'red', size: 10 },
-            yaxis: 'y2',
-        };
-
-        const traces = [assetTrace, portfolioTrace, untouchedPortfolioTrace, emaTrace, emaMicroTrace];
-        if (showMargin) {
+        // Margin trace if enabled
+        if (showMargin && timestampsMargin.length > 0) {
+            const marginTrace = {
+                x: timestampsMargin,
+                y: valuesMargin,
+                mode: 'lines',
+                type: 'scatter',
+                name: 'Margin',
+                yaxis: 'y2',
+                line: { color: 'red' },
+            };
             traces.push(marginTrace);
         }
 
-        // Hide buy/sell in log mode
-        if (!logarithmic && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
-            traces.push(buyTrace, sellTrace);
-        }
-
+        // Buy/Sell trades if not in log mode
         const annotations = [];
-        if (!logarithmic) {
+        if (!logarithmic && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
+            const buyTrace = {
+                x: buyTimestamps,
+                y: buyValues,
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Buy Trades',
+                marker: { color: 'green', size: 10 },
+                yaxis: 'y2',
+            };
+            const sellTrace = {
+                x: sellTimestamps,
+                y: sellValues,
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Sell Trades',
+                marker: { color: 'red', size: 10 },
+                yaxis: 'y2',
+            };
+            traces.push(buyTrace, sellTrace);
+
+            // Add annotations for buy/sell trades
             buyTimestamps.forEach((timestamp, index) => {
                 annotations.push({
                     x: timestamp,
@@ -174,18 +192,15 @@ function plotData() {
 
         let shapes = [];
         if (fourBillionTimestamp && fourBillionValue) {
-            // Define a large time window for horizontal line (12 hours each side)
             const halfDay = 12 * 3600 * 1000;
             const x0Time = new Date(fourBillionTimestamp.getTime() - halfDay);
             const x1Time = new Date(fourBillionTimestamp.getTime() + halfDay);
 
-            // Define a vertical span (half to double the 4B value)
             const y0Value = fourBillionValue / 2;
             const y1Value = fourBillionValue * 2;
 
             shapes = [
                 {
-                    // Horizontal line segment crossing the 4B point
                     type: 'line',
                     layer: 'above',
                     xref: 'x',
@@ -201,7 +216,6 @@ function plotData() {
                     }
                 },
                 {
-                    // Vertical line segment crossing the 4B point
                     type: 'line',
                     layer: 'above',
                     xref: 'x',
@@ -279,25 +293,28 @@ function plotData() {
         }
     }
 
-    Papa.parse('./output/asset.txt', {
-        download: true,
-        delimiter: ',',
-        dynamicTyping: true,
-        step: function (row) {
-            const [timestamp, value] = row.data;
-            if (timestamp && value !== undefined) {
-                timestampsAsset.push(new Date(timestamp * 1000));
-                valuesAsset.push(value);
-            }
-        },
-        complete: function () {
-            datasetsLoaded.asset = true;
-            checkIfReadyToCreateChart();
-        },
-        error: function (error) {
-            console.error('Error while parsing asset data file:', error);
-        },
-    });
+    // Load asset data if enabled
+    if (loadAsset) {
+        Papa.parse('./output/asset.txt', {
+            download: true,
+            delimiter: ',',
+            dynamicTyping: true,
+            step: function (row) {
+                const [timestamp, value] = row.data;
+                if (timestamp && value !== undefined) {
+                    timestampsAsset.push(new Date(timestamp * 1000));
+                    valuesAsset.push(value);
+                }
+            },
+            complete: function () {
+                datasetsLoaded.asset = true;
+                checkIfReadyToCreateChart();
+            },
+            error: function (error) {
+                console.error('Error parsing asset data file:', error);
+            },
+        });
+    }
 
     Papa.parse('./output/portfolio.txt', {
         download: true,
@@ -316,7 +333,7 @@ function plotData() {
             parseTradesData();
         },
         error: function (error) {
-            console.error('Error while parsing portfolio data file:', error);
+            console.error('Error parsing portfolio data file:', error);
         },
     });
 
@@ -336,49 +353,53 @@ function plotData() {
             checkIfReadyToCreateChart();
         },
         error: function (error) {
-            console.error('Error while parsing untouched portfolio data file:', error);
+            console.error('Error parsing untouched portfolio data file:', error);
         },
     });
 
-    Papa.parse('./output/expma.txt', {
-        download: true,
-        delimiter: ',',
-        dynamicTyping: true,
-        step: function (row) {
-            const [timestamp, value] = row.data;
-            if (timestamp && value !== undefined) {
-                timestampsEMA.push(new Date(timestamp * 1000));
-                valuesEMA.push(value);
-            }
-        },
-        complete: function () {
-            datasetsLoaded.ema = true;
-            checkIfReadyToCreateChart();
-        },
-        error: function (error) {
-            console.error('Error while parsing EMA data file:', error);
-        },
-    });
+    if (loadEMA) {
+        Papa.parse('./output/expma.txt', {
+            download: true,
+            delimiter: ',',
+            dynamicTyping: true,
+            step: function (row) {
+                const [timestamp, value] = row.data;
+                if (timestamp && value !== undefined) {
+                    timestampsEMA.push(new Date(timestamp * 1000));
+                    valuesEMA.push(value);
+                }
+            },
+            complete: function () {
+                datasetsLoaded.ema = true;
+                checkIfReadyToCreateChart();
+            },
+            error: function (error) {
+                console.error('Error parsing EMA data file:', error);
+            },
+        });
+    }
 
-    Papa.parse('./output/expma_micro.txt', {
-        download: true,
-        delimiter: ',',
-        dynamicTyping: true,
-        step: function (row) {
-            const [timestamp, value] = row.data;
-            if (timestamp && value !== undefined) {
-                timestampsEMAMicro.push(new Date(timestamp * 1000));
-                valuesEMAMicro.push(value);
-            }
-        },
-        complete: function () {
-            datasetsLoaded.emaMicro = true;
-            checkIfReadyToCreateChart();
-        },
-        error: function (error) {
-            console.error('Error while parsing EMA micro data file:', error);
-        },
-    });
+    if (loadEMAMicro) {
+        Papa.parse('./output/expma_micro.txt', {
+            download: true,
+            delimiter: ',',
+            dynamicTyping: true,
+            step: function (row) {
+                const [timestamp, value] = row.data;
+                if (timestamp && value !== undefined) {
+                    timestampsEMAMicro.push(new Date(timestamp * 1000));
+                    valuesEMAMicro.push(value);
+                }
+            },
+            complete: function () {
+                datasetsLoaded.emaMicro = true;
+                checkIfReadyToCreateChart();
+            },
+            error: function (error) {
+                console.error('Error parsing EMA micro data file:', error);
+            },
+        });
+    }
 
     if (slopeDisplayInterval > 0) {
         Papa.parse('./output/ema_slopes.txt', {
@@ -397,7 +418,7 @@ function plotData() {
                 checkIfReadyToCreateChart();
             },
             error: function (error) {
-                console.error('Error while parsing EMA slopes data file:', error);
+                console.error('Error parsing EMA slopes data file:', error);
             },
         });
     }
@@ -419,7 +440,7 @@ function plotData() {
                 checkIfReadyToCreateChart();
             },
             error: function (error) {
-                console.error('Error while parsing margin data file:', error);
+                console.error('Error parsing margin data file:', error);
             },
         });
     }
@@ -433,7 +454,7 @@ function plotData() {
                 tradesLineCount += 1;
                 if (tradesLineCount > 3000) {
                     skipTrades = true;
-                    return; // Stop processing additional rows
+                    return;
                 }
 
                 const [timestamp, action, reason] = row.data;
@@ -478,7 +499,7 @@ function plotData() {
                 checkIfReadyToCreateChart();
             },
             error: function (error) {
-                console.error('Error while parsing trades file:', error);
+                console.error('Error parsing trades file:', error);
             },
         });
     }
