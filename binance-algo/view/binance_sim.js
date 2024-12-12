@@ -3,7 +3,7 @@ function plotData() {
     const slopeDisplayInterval = 5; // Change this value as needed
 
     // Variable to control logarithmic scale
-    const logarithmic = true; // Set to true to use logarithmic scale for portfolio value
+    const logarithmic = false; // Set to true to use logarithmic scale for portfolio value
 
     // Variable to toggle the display of the margin data
     const showMargin = false; // Set to true to display the margin data
@@ -58,6 +58,10 @@ function plotData() {
         trades: false,
         margin: !showMargin, // Set to true if margin data should not be displayed
     };
+
+    // This will hold the first point where the portfolio reaches/exceeds 4 billion
+    let fourBillionTimestamp = null;
+    let fourBillionValue = null;
 
     // Function to create the chart once all datasets are loaded
     function createChart() {
@@ -146,40 +150,97 @@ function plotData() {
             traces.push(marginTrace);
         }
 
-        if (buyTimestamps.length > 0 || sellTimestamps.length > 0) {
+        // If not in logarithmic mode, add buy/sell trades
+        if (!logarithmic && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
             traces.push(buyTrace, sellTrace);
         }
 
         // Annotations for trades
         const annotations = [];
 
-        // Add annotations for buy trades
-        buyTimestamps.forEach((timestamp, index) => {
-            annotations.push({
-                x: timestamp,
-                y: buyValues[index],
-                xref: 'x',
-                yref: 'y2',
-                text: buyReasons[index],
-                showarrow: false,
-                font: { size: 10, color: 'green' },
-                yshift: 10,
+        // Add annotations for buy trades if not in logarithmic mode
+        if (!logarithmic) {
+            buyTimestamps.forEach((timestamp, index) => {
+                annotations.push({
+                    x: timestamp,
+                    y: buyValues[index],
+                    xref: 'x',
+                    yref: 'y2',
+                    text: buyReasons[index],
+                    showarrow: false,
+                    font: { size: 10, color: 'green' },
+                    yshift: 10,
+                });
             });
-        });
 
-        // Add annotations for sell trades
-        sellTimestamps.forEach((timestamp, index) => {
+            // Add annotations for sell trades
+            sellTimestamps.forEach((timestamp, index) => {
+                annotations.push({
+                    x: timestamp,
+                    y: sellValues[index],
+                    xref: 'x',
+                    yref: 'y2',
+                    text: sellReasons[index],
+                    showarrow: false,
+                    font: { size: 10, color: 'red' },
+                    yshift: -10,
+                });
+            });
+        }
+
+        // Add a small crosshair at the 4 billion point if found
+        let shapes = [];
+        if (fourBillionTimestamp && fourBillionValue) {
+            const crosshairTimeSpan = 1000 * 60 * 60; // 1 hour span for horizontal line
+            const crosshairValueSpan = fourBillionValue * 0.01; // small vertical span around the point
+
+            shapes = [
+                // Small vertical line segment around the 4B value
+                {
+                    type: 'line',
+                    xref: 'x',
+                    yref: 'y2',
+                    x0: fourBillionTimestamp,
+                    x1: fourBillionTimestamp,
+                    y0: fourBillionValue - crosshairValueSpan,
+                    y1: fourBillionValue + crosshairValueSpan,
+                    line: {
+                        color: 'blue',
+                        width: 2,
+                        dash: 'solid',
+                    }
+                },
+                // Small horizontal line segment around the 4B timestamp
+                {
+                    type: 'line',
+                    xref: 'x',
+                    yref: 'y2',
+                    x0: new Date(fourBillionTimestamp.getTime() - crosshairTimeSpan),
+                    x1: new Date(fourBillionTimestamp.getTime() + crosshairTimeSpan),
+                    y0: fourBillionValue,
+                    y1: fourBillionValue,
+                    line: {
+                        color: 'blue',
+                        width: 2,
+                        dash: 'solid',
+                    }
+                }
+            ];
+
+            // Annotation at the intersection
             annotations.push({
-                x: timestamp,
-                y: sellValues[index],
+                x: fourBillionTimestamp,
+                y: fourBillionValue,
                 xref: 'x',
                 yref: 'y2',
-                text: sellReasons[index],
-                showarrow: false,
-                font: { size: 10, color: 'red' },
-                yshift: -10,
+                text: '4B',
+                showarrow: true,
+                arrowhead: 2,
+                ax: 20,
+                ay: -30,
+                font: { size: 12, color: 'blue' },
             });
-        });
+        }
 
         const layout = {
             title: 'Cryptocurrency and Portfolio Data Chart',
@@ -203,6 +264,7 @@ function plotData() {
                 yanchor: 'top',
             },
             annotations: annotations,
+            shapes: shapes,
         };
 
         Plotly.newPlot('chart', traces, layout);
@@ -212,6 +274,16 @@ function plotData() {
     function checkIfReadyToCreateChart() {
         const allLoaded = Object.values(datasetsLoaded).every((loaded) => loaded);
         if (allLoaded) {
+            // Before creating the chart, determine if/where the portfolio hits 4 billion
+            const fourBillion = 4000000000;
+            for (let i = 0; i < valuesPortfolio.length; i++) {
+                if (valuesPortfolio[i] >= fourBillion) {
+                    fourBillionTimestamp = timestampsPortfolio[i];
+                    fourBillionValue = valuesPortfolio[i];
+                    break;
+                }
+            }
+
             createChart();
         }
     }
