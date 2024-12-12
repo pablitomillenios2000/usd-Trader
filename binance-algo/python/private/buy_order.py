@@ -15,7 +15,7 @@ try:
     api_secret = api_keys['secret']
     trading_pair = api_keys['pair']
 
-    leverageStrength = 3
+    leverageStrength = api_keys['margin']
 
     # Step 2: Initialize the Binance client
     client = Client(api_key, api_secret)
@@ -60,6 +60,11 @@ try:
     print(f"Side: BUY")
     print(f"Type: MARKET")
     print(f"Quote Order Quantity: {target_balance}")
+
+    print("Debug: Leverage Strength =", leverageStrength)
+    print("Debug: USDC Balance =", USDC_balance)
+    print("Debug: Target Balance (before borrow) =", USDC_balance * leverageStrength)
+
 
     # Step 10: Execute a margin market buy order for the total amount of USDC available
     order = client.create_margin_order(

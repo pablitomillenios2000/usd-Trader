@@ -6,9 +6,9 @@
     "investment": 5000,
     "margin": 4, //4x margin
     "sl_percentage": 1.5,
-    "input_file": "../assets/Crashers/DOTUSDT.csv",
-    "start_date": "2021-01-01",
-    "end_date": "2021-01-10",
+    "input_file": "../assets/suiusdc-realtime.csv",
+    "start_date": "1900-01-01", //"2021-01-01",
+    "end_date": "2040-01-01", //"2021-08-20",
     "ema_days": 1800,
     "ema_days_micro": 200,
     "min_positive_slope": -99

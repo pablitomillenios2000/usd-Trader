@@ -5,11 +5,17 @@ import pandas as pd
 import time
 import threading
 
+# Load the trading pair from apikey-binance.json
+with open("../../dist/apikey-binance.json", "r") as file:
+    config = json5.load(file)
+    if "pair" not in config:
+        raise ValueError("The 'pair' key is missing in apikey-binance.json")
+    symbol = config["pair"].lower()  # Convert to lowercase for Binance's WebSocket API
+
 # Define the parameters
-symbol = "suiusdc"
 interval = "1m"
 ws_url = f"wss://stream.binance.com:9443/ws/{symbol}@kline_{interval}"
-csv_filename = "1min-candledata.csv"
+csv_filename = f"../../assets/{symbol}-realtime.csv"  # Dynamically generate the output path
 
 # Define the column names
 columns = [
