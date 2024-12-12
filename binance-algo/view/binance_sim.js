@@ -3,36 +3,30 @@ function plotData() {
     const slopeDisplayInterval = 5; // Change this value as needed
 
     // Variable to control logarithmic scale
-    const logarithmic = false; // Set to true to use logarithmic scale for portfolio value
+    const logarithmic = true; // Set to true to use logarithmic scale for portfolio value
 
     // Variable to toggle the display of the margin data
     const showMargin = false; // Set to true to display the margin data
 
-    // Define arrays to hold the data for the first file
+    // Define arrays to hold the data
     const timestampsAsset = [];
     const valuesAsset = [];
 
-    // Define arrays to hold the data for the second file
     const timestampsPortfolio = [];
     const valuesPortfolio = [];
 
-    // Define arrays to hold the data for the third file
     const timestampsUntouchedPortfolio = [];
     const valuesUntouchedPortfolio = [];
 
-    // Define arrays to hold the data for EMA
     const timestampsEMA = [];
     const valuesEMA = [];
 
-    // Define arrays to hold the data for EMA micro
     const timestampsEMAMicro = [];
     const valuesEMAMicro = [];
 
-    // Define arrays to hold the data for EMA slopes
     const timestampsSlopes = [];
     const slopes = [];
 
-    // Define arrays to hold the data for trades
     const buyTimestamps = [];
     const buyValues = [];
     const buyReasons = []; // Reasons for buy trades
@@ -41,7 +35,6 @@ function plotData() {
     const sellValues = [];
     const sellReasons = []; // Reasons for sell trades
 
-    // Define arrays to hold the data for the margin file
     const timestampsMargin = [];
     const valuesMargin = [];
 
@@ -54,16 +47,14 @@ function plotData() {
         untouchedPortfolio: false,
         ema: false,
         emaMicro: false,
-        emaSlopes: slopeDisplayInterval === 0 ? true : false, // Consider slopes loaded if not using them
+        emaSlopes: slopeDisplayInterval === 0 ? true : false,
         trades: false,
-        margin: !showMargin, // Set to true if margin data should not be displayed
+        margin: !showMargin,
     };
 
-    // This will hold the first point where the portfolio reaches/exceeds 4 billion
     let fourBillionTimestamp = null;
     let fourBillionValue = null;
 
-    // Function to create the chart once all datasets are loaded
     function createChart() {
         const assetTrace = {
             x: timestampsAsset,
@@ -81,7 +72,7 @@ function plotData() {
             type: 'scatter',
             name: 'Portfolio Value',
             yaxis: 'y2',
-            line: { color: 'orange' }, // Set line color to orange
+            line: { color: 'orange' },
         };
 
         const untouchedPortfolioTrace = {
@@ -113,15 +104,14 @@ function plotData() {
             line: { color: 'purple', shape: 'spline' },
         };
 
-        // Create a trace for the margin data
         const marginTrace = {
             x: timestampsMargin,
             y: valuesMargin,
             mode: 'lines',
             type: 'scatter',
             name: 'Margin',
-            yaxis: 'y2', // Align with portfolio value axis
-            line: { color: 'red' }, // Set line color to red
+            yaxis: 'y2',
+            line: { color: 'red' },
         };
 
         const buyTrace = {
@@ -131,7 +121,7 @@ function plotData() {
             type: 'scatter',
             name: 'Buy Trades',
             marker: { color: 'green', size: 10 },
-            yaxis: 'y2', // Align with portfolio line
+            yaxis: 'y2',
         };
 
         const sellTrace = {
@@ -141,24 +131,20 @@ function plotData() {
             type: 'scatter',
             name: 'Sell Trades',
             marker: { color: 'red', size: 10 },
-            yaxis: 'y2', // Align with portfolio line
+            yaxis: 'y2',
         };
 
-        // Include the margin trace conditionally
         const traces = [assetTrace, portfolioTrace, untouchedPortfolioTrace, emaTrace, emaMicroTrace];
         if (showMargin) {
             traces.push(marginTrace);
         }
 
-        // If not in logarithmic mode, add buy/sell trades
+        // Hide buy/sell in log mode
         if (!logarithmic && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
             traces.push(buyTrace, sellTrace);
         }
 
-        // Annotations for trades
         const annotations = [];
-
-        // Add annotations for buy trades if not in logarithmic mode
         if (!logarithmic) {
             buyTimestamps.forEach((timestamp, index) => {
                 annotations.push({
@@ -172,8 +158,6 @@ function plotData() {
                     yshift: 10,
                 });
             });
-
-            // Add annotations for sell trades
             sellTimestamps.forEach((timestamp, index) => {
                 annotations.push({
                     x: timestamp,
@@ -188,46 +172,52 @@ function plotData() {
             });
         }
 
-        // Add a small crosshair at the 4 billion point if found
         let shapes = [];
         if (fourBillionTimestamp && fourBillionValue) {
-            const crosshairTimeSpan = 1000 * 60 * 60; // 1 hour span for horizontal line
-            const crosshairValueSpan = fourBillionValue * 0.01; // small vertical span around the point
+            // Define a large time window for horizontal line (12 hours each side)
+            const halfDay = 12 * 3600 * 1000;
+            const x0Time = new Date(fourBillionTimestamp.getTime() - halfDay);
+            const x1Time = new Date(fourBillionTimestamp.getTime() + halfDay);
+
+            // Define a vertical span (half to double the 4B value)
+            const y0Value = fourBillionValue / 2;
+            const y1Value = fourBillionValue * 2;
 
             shapes = [
-                // Small vertical line segment around the 4B value
                 {
+                    // Horizontal line segment crossing the 4B point
                     type: 'line',
+                    layer: 'above',
                     xref: 'x',
                     yref: 'y2',
-                    x0: fourBillionTimestamp,
-                    x1: fourBillionTimestamp,
-                    y0: fourBillionValue - crosshairValueSpan,
-                    y1: fourBillionValue + crosshairValueSpan,
-                    line: {
-                        color: 'blue',
-                        width: 2,
-                        dash: 'solid',
-                    }
-                },
-                // Small horizontal line segment around the 4B timestamp
-                {
-                    type: 'line',
-                    xref: 'x',
-                    yref: 'y2',
-                    x0: new Date(fourBillionTimestamp.getTime() - crosshairTimeSpan),
-                    x1: new Date(fourBillionTimestamp.getTime() + crosshairTimeSpan),
+                    x0: x0Time,
+                    x1: x1Time,
                     y0: fourBillionValue,
                     y1: fourBillionValue,
                     line: {
                         color: 'blue',
-                        width: 2,
+                        width: 8,
+                        dash: 'solid',
+                    }
+                },
+                {
+                    // Vertical line segment crossing the 4B point
+                    type: 'line',
+                    layer: 'above',
+                    xref: 'x',
+                    yref: 'y2',
+                    x0: fourBillionTimestamp,
+                    x1: fourBillionTimestamp,
+                    y0: y0Value,
+                    y1: y1Value,
+                    line: {
+                        color: 'blue',
+                        width: 8,
                         dash: 'solid',
                     }
                 }
             ];
 
-            // Annotation at the intersection
             annotations.push({
                 x: fourBillionTimestamp,
                 y: fourBillionValue,
@@ -236,9 +226,13 @@ function plotData() {
                 text: '4B',
                 showarrow: true,
                 arrowhead: 2,
+                arrowsize: 2,
+                arrowwidth: 2,
+                arrowcolor: 'blue',
                 ax: 20,
                 ay: -30,
-                font: { size: 12, color: 'blue' },
+                font: { size: 16, color: 'blue', family: 'Arial Black' },
+                bgcolor: 'rgba(255, 255, 255, 0.7)'
             });
         }
 
@@ -255,7 +249,7 @@ function plotData() {
                 side: 'right',
                 overlaying: 'y',
                 showgrid: false,
-                type: logarithmic ? 'log' : 'linear', // Use logarithmic scale if true
+                type: logarithmic ? 'log' : 'linear',
             },
             legend: {
                 x: 0,
@@ -270,11 +264,9 @@ function plotData() {
         Plotly.newPlot('chart', traces, layout);
     }
 
-    // Helper function to check if all datasets are loaded
     function checkIfReadyToCreateChart() {
         const allLoaded = Object.values(datasetsLoaded).every((loaded) => loaded);
         if (allLoaded) {
-            // Before creating the chart, determine if/where the portfolio hits 4 billion
             const fourBillion = 4000000000;
             for (let i = 0; i < valuesPortfolio.length; i++) {
                 if (valuesPortfolio[i] >= fourBillion) {
@@ -283,12 +275,10 @@ function plotData() {
                     break;
                 }
             }
-
             createChart();
         }
     }
 
-    // Parse the asset data
     Papa.parse('./output/asset.txt', {
         download: true,
         delimiter: ',',
@@ -309,7 +299,6 @@ function plotData() {
         },
     });
 
-    // Parse the portfolio data
     Papa.parse('./output/portfolio.txt', {
         download: true,
         delimiter: ',',
@@ -324,8 +313,6 @@ function plotData() {
         complete: function () {
             datasetsLoaded.portfolio = true;
             checkIfReadyToCreateChart();
-
-            // Now that portfolio data is loaded, parse trades data
             parseTradesData();
         },
         error: function (error) {
@@ -333,7 +320,6 @@ function plotData() {
         },
     });
 
-    // Parse the untouched portfolio data
     Papa.parse('./output/untouched_portfolio.txt', {
         download: true,
         delimiter: ',',
@@ -354,7 +340,6 @@ function plotData() {
         },
     });
 
-    // Parse the EMA data
     Papa.parse('./output/expma.txt', {
         download: true,
         delimiter: ',',
@@ -375,7 +360,6 @@ function plotData() {
         },
     });
 
-    // Parse the EMA micro data
     Papa.parse('./output/expma_micro.txt', {
         download: true,
         delimiter: ',',
@@ -396,7 +380,6 @@ function plotData() {
         },
     });
 
-    // Parse the EMA slopes data if needed
     if (slopeDisplayInterval > 0) {
         Papa.parse('./output/ema_slopes.txt', {
             download: true,
@@ -419,7 +402,6 @@ function plotData() {
         });
     }
 
-    // Parse the margin data
     if (showMargin) {
         Papa.parse('./output/margin.txt', {
             download: true,
@@ -442,7 +424,6 @@ function plotData() {
         });
     }
 
-    // Function to parse the trades data
     function parseTradesData() {
         Papa.parse('./output/trades.txt', {
             download: true,
@@ -450,30 +431,19 @@ function plotData() {
             dynamicTyping: true,
             step: function (row) {
                 tradesLineCount += 1;
-
                 if (tradesLineCount > 3000) {
                     skipTrades = true;
                     return; // Stop processing additional rows
                 }
 
                 const [timestamp, action, reason] = row.data;
-
                 if (timestamp && action && reason) {
                     const date = new Date(timestamp * 1000);
                     const portfolioIndex = timestampsPortfolio.findIndex((t) => t.getTime() === date.getTime());
+                    let value;
                     if (portfolioIndex !== -1) {
-                        const value = valuesPortfolio[portfolioIndex];
-                        if (action === 'buy') {
-                            buyTimestamps.push(date);
-                            buyValues.push(value);
-                            buyReasons.push(reason);
-                        } else if (action === 'sell') {
-                            sellTimestamps.push(date);
-                            sellValues.push(value);
-                            sellReasons.push(reason);
-                        }
+                        value = valuesPortfolio[portfolioIndex];
                     } else {
-                        // If exact timestamp not found, find closest timestamp
                         let closestIndex = -1;
                         let minDiff = Infinity;
                         timestampsPortfolio.forEach((t, idx) => {
@@ -484,16 +454,18 @@ function plotData() {
                             }
                         });
                         if (closestIndex !== -1) {
-                            const value = valuesPortfolio[closestIndex];
-                            if (action === 'buy') {
-                                buyTimestamps.push(date);
-                                buyValues.push(value);
-                                buyReasons.push(reason);
-                            } else if (action === 'sell') {
-                                sellTimestamps.push(date);
-                                sellValues.push(value);
-                                sellReasons.push(reason);
-                            }
+                            value = valuesPortfolio[closestIndex];
+                        }
+                    }
+                    if (value !== undefined) {
+                        if (action === 'buy') {
+                            buyTimestamps.push(date);
+                            buyValues.push(value);
+                            buyReasons.push(reason);
+                        } else if (action === 'sell') {
+                            sellTimestamps.push(date);
+                            sellValues.push(value);
+                            sellReasons.push(reason);
                         }
                     }
                 }
