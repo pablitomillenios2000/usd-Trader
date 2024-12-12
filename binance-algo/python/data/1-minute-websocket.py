@@ -1,14 +1,20 @@
 import websocket
-import json
+import json5
+
+# Load the trading pair from apikey-binance.json
+with open("../../dist/apikey-binance.json", "r") as file:
+    config = json5.load(file)
+    if "pair" not in config:
+        raise ValueError("The 'pair' key is missing in apikey-binance.json")
+    symbol = config["pair"].lower()  # Convert to lowercase for Binance's WebSocket API
 
 # Define the WebSocket URL for Binance's real-time kline data
-symbol = "suiusdc"
 interval = "1m"
 ws_url = f"wss://stream.binance.com:9443/ws/{symbol}@kline_{interval}"
 
 # Callback function for when a message is received
 def on_message(ws, message):
-    data = json.loads(message)
+    data = json5.loads(message)
     kline = data['k']
     is_kline_closed = kline['x']
     if is_kline_closed:

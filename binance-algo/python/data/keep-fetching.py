@@ -1,5 +1,5 @@
 import websocket
-import json
+import json5
 import requests
 import pandas as pd
 import time
@@ -71,7 +71,7 @@ def fetch_historical_data():
 
 # Callback function for when a message is received
 def on_message(ws, message):
-    data = json.loads(message)
+    data = json5.loads(message)
     kline = data['k']
     is_kline_closed = kline['x']
     if is_kline_closed:
