@@ -9,14 +9,14 @@ TRADES_FILE = "../view/output/trades.txt"
 PORTFOLIO_FILE = "../view/output/portfolio.txt"
 
 def load_api_data(file_path):
-    """Load API key data with investment, margin, and annual interest rate."""
+    """Load API key data with investment, margin, annual interest rate, and trade fee."""
     with open(file_path, "r") as f:
         api_data = json5.load(f)
-    return (
-        float(api_data["investment"]),
-        float(api_data["margin"]),
-        float(api_data["margin_annual_interest_percentage"]) / 100
-    )
+    investment = float(api_data["investment"])
+    margin = float(api_data["margin"])
+    annual_interest_rate = float(api_data["margin_annual_interest_percentage"]) / 100
+    trade_fee_percentage = float(api_data.get("trade_fee_percentage", 0.1)) / 100
+    return investment, margin, annual_interest_rate, trade_fee_percentage
 
 def load_asset_data(file_path):
     """Load asset data as a dictionary of prices and events."""
@@ -40,20 +40,39 @@ def load_trade_data(file_path):
             trade_events.append((timestamp, 'trade', action))
     return trade_events
 
+def accrue_interest(debt, annual_interest_rate, time_diff_seconds):
+    """Calculate and return the interest accrued for the given time period on the debt."""
+    if debt <= 0:
+        return 0.0
+    
+    # Convert annual interest rate to per-second rate (simple interest)
+    # annual_interest_rate is a decimal (e.g., 8% = 0.08)
+    seconds_per_year = 365 * 24 * 3600
+    interest_for_period = debt * annual_interest_rate * (time_diff_seconds / seconds_per_year)
+    return interest_for_period
 
-def process_events(events, price_dict, investment, margin, annual_interest_rate):
-    """Simulate trades and portfolio value based on provided rules."""
+def process_events(events, price_dict, investment, margin, annual_interest_rate, trade_fee_percentage):
+    """Simulate trades, including margin interest and trading fees, and produce portfolio values."""
     number_of_shares = 0.0
     cash_balance = investment
     debt = 0.0
     portfolio_data = []
 
-    # Initialize the last known portfolio value to handle constant periods
+    # Keep track of last event timestamp to accrue interest
+    last_timestamp = None
     last_net_value = investment
 
     for timestamp, event_type, data in events:
         current_timestamp = datetime.fromtimestamp(timestamp)
 
+        # First accrue interest since the last event (if any)
+        if last_timestamp is not None:
+            time_diff = timestamp - last_timestamp
+            # Accrue interest on current debt
+            interest = accrue_interest(debt, annual_interest_rate, time_diff)
+            # Add the accrued interest to the debt
+            debt += interest
+        
         if event_type == 'price':
             closing_price = data
             # Calculate the net portfolio value
@@ -67,20 +86,31 @@ def process_events(events, price_dict, investment, margin, annual_interest_rate)
             if data == 'buy':
                 # Buy with all available cash and maximum margin
                 total_funds = cash_balance + (cash_balance * margin)
-                shares_to_buy = total_funds / closing_price
+                # Apply trade fee: fee is on the total notional of the trade
+                # Notional = total_funds; fee = total_funds * trade_fee_percentage
+                fee = total_funds * trade_fee_percentage
+                effective_funds = total_funds - fee
+
+                shares_to_buy = effective_funds / closing_price
                 number_of_shares += shares_to_buy
-                debt += total_funds - cash_balance
+                # Debt is the borrowed part: (total_funds - cash_balance)
+                borrowed = total_funds - cash_balance
+                debt += borrowed
                 cash_balance = 0.0
 
             elif data == 'sell':
                 # Sell all shares
                 proceeds = number_of_shares * closing_price
+                # Apply fee: fee = proceeds * trade_fee_percentage
+                fee = proceeds * trade_fee_percentage
+                net_proceeds = proceeds - fee
+
                 number_of_shares = 0.0
-                if proceeds >= debt:
-                    cash_balance += proceeds - debt
+                if net_proceeds >= debt:
+                    cash_balance += net_proceeds - debt
                     debt = 0.0
                 else:
-                    debt -= proceeds
+                    debt -= net_proceeds
                     cash_balance = 0.0
 
             # Recalculate net value after trade
@@ -91,6 +121,8 @@ def process_events(events, price_dict, investment, margin, annual_interest_rate)
         else:
             # For events not affecting price or trade, keep last known portfolio value
             portfolio_data.append((timestamp, last_net_value))
+
+        last_timestamp = timestamp
 
     return portfolio_data
 
@@ -104,15 +136,15 @@ def main():
     os.makedirs(os.path.dirname(PORTFOLIO_FILE), exist_ok=True)
 
     # Load data
-    investment, margin, annual_interest_rate = load_api_data(API_KEY_FILE)
+    investment, margin, annual_interest_rate, trade_fee_percentage = load_api_data(API_KEY_FILE)
     price_dict, asset_events = load_asset_data(ASSET_FILE)
     trade_events = load_trade_data(TRADES_FILE)
 
     # Merge and sort events
     events = sorted(asset_events + trade_events, key=lambda x: x[0])
 
-    # Process portfolio values
-    portfolio_data = process_events(events, price_dict, investment, margin, annual_interest_rate)
+    # Process portfolio values with interest and fees
+    portfolio_data = process_events(events, price_dict, investment, margin, annual_interest_rate, trade_fee_percentage)
 
     # Save results
     save_portfolio_data(portfolio_data, PORTFOLIO_FILE)
