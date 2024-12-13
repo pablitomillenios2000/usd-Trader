@@ -7,6 +7,7 @@ import os
 start_time = time.time()
 
 # Execute the commands
+os.system("python3 ./pairname.py")
 os.system("python3 ./compute_asset.py")
 os.system("python3 ./compute_ema.py")
 os.system("python3 ./compute_ema_micro.py")

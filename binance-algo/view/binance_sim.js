@@ -1,3 +1,21 @@
+let titleContents = '';
+
+function setTitleWithPairName() {
+    fetch('./output/pairname.txt')
+        .then(response => response.text())
+        .then(pairName => {
+            const trimmedPairName = pairName.trim();
+            if (trimmedPairName) {
+                // Update the browser tab title
+                document.title = `SIMULATION - ${trimmedPairName} Data Chart`;
+                titleContents = `SIMULATION - ${trimmedPairName} Data Chart`;
+            }
+        })
+        .catch(error => console.error('Error fetching pair name:', error));
+}
+
+
+
 function plotData() {
     // Variables to skip loading certain files
     const loadEMA = true;       // Set to false to skip loading expma.txt
@@ -258,7 +276,7 @@ function plotData() {
         }
 
         const layout = {
-            title: 'Cryptocurrency and Portfolio Data Chart',
+            title: titleContents,
             xaxis: { title: 'Time' },
             yaxis: {
                 title: 'Asset Price',
@@ -516,4 +534,6 @@ function plotData() {
 document.body.innerHTML += '<div id="chart" style="width: 100%; height: 98vh;"></div>';
 
 // Call the function to plot the data
+setTitleWithPairName();
 plotData();
+
