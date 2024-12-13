@@ -8,7 +8,7 @@ import time
 import threading
 
 # Load the trading pair from apikey-binance.json
-with open("../../dist/apikey-binance.json", "r") as file:
+with open("../../../dist/apikey-binance.json", "r") as file:
     config = json5.load(file)
     if "pair" not in config:
         raise ValueError("The 'pair' key is missing in apikey-binance.json")
@@ -17,7 +17,7 @@ with open("../../dist/apikey-binance.json", "r") as file:
 # Define the parameters
 interval = "1m"
 ws_url = f"wss://stream.binance.com:9443/ws/{symbol}@kline_{interval}"
-csv_filename = f"../../assets/{symbol}-realtime.csv"  # Dynamically generate the output path
+csv_filename = f"../../../assets/{symbol}-realtime.csv"  # Dynamically generate the output path
 
 # Define the column names
 columns = [

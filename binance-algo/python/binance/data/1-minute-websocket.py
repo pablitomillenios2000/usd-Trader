@@ -2,7 +2,7 @@ import websocket
 import json5
 
 # Load the trading pair from apikey-binance.json
-with open("../../dist/apikey-binance.json", "r") as file:
+with open("../../../dist/apikey-binance.json", "r") as file:
     config = json5.load(file)
     if "pair" not in config:
         raise ValueError("The 'pair' key is missing in apikey-binance.json")

@@ -6,14 +6,14 @@ import json5
 import math
 
 # Load API keys and margin level from JSON5 file
-with open("../../dist/apikey-binance.json", "r") as file:
+with open("../../../dist/apikey-binance.json", "r") as file:
     config = json5.load(file)
 
 API_KEY = config.get("key")
 SECRET_KEY = config.get("secret")
 MARGIN_LEVEL = float(config.get("margin", 1))  # Default to 1 if margin is not set
 
-equity_filename = "../../view/output/equity.txt" 
+equity_filename = "../../../view/output/equity.txt" 
 
 BASE_URL = 'https://api.binance.com'
 
