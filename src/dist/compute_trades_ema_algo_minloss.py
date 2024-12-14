@@ -21,6 +21,8 @@ buying_pause_length_hours = 168  # One week pause period
 mstl_pause_length_hours = 72  # Example: 3-day pause after "mstl"
 ema_micro_compute_time_minutes = 7  # Average micro EMA over the last 7 minutes
 
+print("Writing Slope-Based Trades")
+
 # Ensure the output directory exists
 os.makedirs(os.path.dirname(trades_file), exist_ok=True)
 
