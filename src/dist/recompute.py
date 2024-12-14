@@ -6,6 +6,9 @@ import os
 # Start the timer
 start_time = time.time()
 
+# Remove all .txt files
+os.system("rm ../view/output/*.txt")
+
 # Execute the commands
 os.system("python3 ./pairname.py")
 os.system("python3 ./compute_asset.py")
