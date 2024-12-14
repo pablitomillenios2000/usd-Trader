@@ -26,7 +26,7 @@ function plotData() {
     const slopeDisplayInterval = 5; // Change this value as needed
 
     // Variable to control logarithmic scale
-    const logarithmic = true; // Set to true to use logarithmic scale for portfolio value
+    const logarithmic = false; // Set to true to use logarithmic scale for portfolio value
 
     // Variable to toggle the display of the margin data
     const showMargin = false; // Set to true to display the margin data
