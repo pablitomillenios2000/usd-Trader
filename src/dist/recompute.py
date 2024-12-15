@@ -19,7 +19,7 @@ os.system("python3 ./compute_ema_micro.py")
 os.system("python3 ./compute_trades_trailsl_localmin.py")
 # os.system("python3 ./compute_trades_ema_algo_minloss.py")
 # os.system("python3 ./compute_margin_requirement.py")
-os.system("python3 ./tradedirectionfilter.py")
+# os.system("python3 ./tradedirectionfilter.py") #filters non-steep
 os.system("python3 ./compute_unt_portfolio.py")
 os.system("python3 ./compute_final_portfolio.py")
 
