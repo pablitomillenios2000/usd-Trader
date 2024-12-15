@@ -11,8 +11,8 @@ apply_hysteresis = True
 # ---------------------------
 
 # File paths
-slope_file = "../view/output/ema_slopes.txt"
-slope_file_micro = "../view/output/ema_slopes_micro.txt"
+slope_file = "../view/output/simple_ma_slope.txt"
+#slope_file_micro = "../view/output/ema_slopes_micro.txt"
 direction_file = "../view/output/direction.txt"
 
 def parse_ema_slopes(file_path):

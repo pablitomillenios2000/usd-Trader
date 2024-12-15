@@ -2,7 +2,7 @@ let titleContents = '';
 
 function plotData() {
     // Variables to skip loading certain files
-    const loadEMA = true;       // Set to false to skip loading expma.txt
+    const loadEMA = false;       // Set to false to skip loading expma.txt
     const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
     const loadAsset = true;     // Set to false to skip loading asset.txt
 
@@ -477,7 +477,7 @@ function plotData() {
                 if (tradesLineCount > 3000) {
                     // Skip further processing if too many lines
                     skipTrades = true;
-                    this.abort();
+                    //this.stop();
                 }
             }
         },
