@@ -3,11 +3,11 @@ let titleContents = '';
 function plotData() {
     // Variables to skip loading certain files
     const loadEMA = true;       // Set to false to skip loading expma.txt
-    const loadEMAMicro = true;  // Set to false to skip loading expma_micro.txt
+    const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
     const loadAsset = true;     // Set to false to skip loading asset.txt
 
     // Attempt to load direction file
-    const loadDirection = true; // Set to false if you do not want to load direction data
+    const loadDirection = false; // Set to false if you do not want to load direction data
 
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
@@ -52,6 +52,10 @@ function plotData() {
     const timestampsDirection = [];
     const valuesDirection = [];
 
+    // New arrays for SMA data
+    const timestampsSMA = [];
+    const valuesSMA = [];
+
     let tradesLineCount = 0; // Track the number of lines in the trades file
     let skipTrades = false; // Flag to skip processing trades if line count exceeds 3000
 
@@ -65,6 +69,7 @@ function plotData() {
         trades: false,
         margin: !showMargin,
         direction: !loadDirection, // Initially false if we intend to load direction
+        sma: false, // Will set to true when SMA file is loaded or confirmed absent
     };
 
     let fourBillionTimestamp = null;
@@ -106,9 +111,7 @@ function plotData() {
             type: 'scatter',
             name: 'Untouched Portfolio Value',
             yaxis: 'y2',
-            line: {
-                color: 'darkblue'
-            }
+            line: { color: 'darkblue' },
         };
         traces.push(untouchedPortfolioTrace);
 
@@ -167,6 +170,20 @@ function plotData() {
             traces.push(directionTrace);
         }
 
+        // Simple Moving Average (SMA) trace if available
+        if (timestampsSMA.length > 0) {
+            const smaTrace = {
+                x: timestampsSMA,
+                y: valuesSMA,
+                mode: 'lines',
+                type: 'scatter',
+                name: 'Simple MA',
+                yaxis: 'y1',
+                line: { color: 'green', dash: 'dot' },
+            };
+            traces.push(smaTrace);
+        }
+
         const annotations = [];
         const totalTrades = buyTimestamps.length + sellTimestamps.length;
 
@@ -221,66 +238,6 @@ function plotData() {
             });
         }
 
-        let shapes = [];
-        if (fourBillionTimestamp && fourBillionValue) {
-            const halfDay = 12 * 3600 * 1000;
-            const x0Time = new Date(fourBillionTimestamp.getTime() - halfDay);
-            const x1Time = new Date(fourBillionTimestamp.getTime() + halfDay);
-
-            const y0Value = fourBillionValue / 2;
-            const y1Value = fourBillionValue * 2;
-
-            shapes = [
-                {
-                    type: 'line',
-                    layer: 'above',
-                    xref: 'x',
-                    yref: 'y2',
-                    x0: x0Time,
-                    x1: x1Time,
-                    y0: fourBillionValue,
-                    y1: fourBillionValue,
-                    line: {
-                        color: 'blue',
-                        width: 8,
-                        dash: 'solid',
-                    }
-                },
-                {
-                    type: 'line',
-                    layer: 'above',
-                    xref: 'x',
-                    yref: 'y2',
-                    x0: fourBillionTimestamp,
-                    x1: fourBillionTimestamp,
-                    y0: y0Value,
-                    y1: y1Value,
-                    line: {
-                        color: 'blue',
-                        width: 8,
-                        dash: 'solid',
-                    }
-                }
-            ];
-
-            annotations.push({
-                x: fourBillionTimestamp,
-                y: fourBillionValue,
-                xref: 'x',
-                yref: 'y2',
-                text: '4B',
-                showarrow: true,
-                arrowhead: 2,
-                arrowsize: 2,
-                arrowwidth: 2,
-                arrowcolor: 'blue',
-                ax: 20,
-                ay: -30,
-                font: { size: 16, color: 'blue', family: 'Arial Black' },
-                bgcolor: 'rgba(255, 255, 255, 0.7)'
-            });
-        }
-
         const layout = {
             title: titleContents,
             xaxis: { title: 'Time' },
@@ -303,7 +260,6 @@ function plotData() {
                 yanchor: 'top',
             },
             annotations: annotations,
-            shapes: shapes,
         };
 
         Plotly.newPlot('chart', traces, layout);
@@ -312,19 +268,49 @@ function plotData() {
     function checkIfReadyToCreateChart() {
         const allLoaded = Object.values(datasetsLoaded).every((loaded) => loaded);
         if (allLoaded) {
-            const fourBillion = 4000000000;
-            for (let i = 0; i < valuesPortfolio.length; i++) {
-                if (valuesPortfolio[i] >= fourBillion) {
-                    fourBillionTimestamp = timestampsPortfolio[i];
-                    fourBillionValue = valuesPortfolio[i];
-                    break;
-                }
-            }
             createChart();
         }
     }
 
-    // Load asset data if enabled
+    // Load SMA data
+    fetch('./output/simple_ma.txt', { method: 'HEAD' })
+        .then(response => {
+            if (response.ok) {
+                Papa.parse('./output/simple_ma.txt', {
+                    download: true,
+                    delimiter: ',',
+                    dynamicTyping: true,
+                    step: function (row) {
+                        const [timestamp, value] = row.data;
+                        if (timestamp && value !== undefined) {
+                            timestampsSMA.push(new Date(timestamp * 1000));
+                            valuesSMA.push(value);
+                        }
+                    },
+                    complete: function () {
+                        datasetsLoaded.sma = true;
+                        checkIfReadyToCreateChart();
+                    },
+                    error: function (error) {
+                        console.error('Error parsing SMA data file:', error);
+                        datasetsLoaded.sma = true; // Proceed even if error
+                        checkIfReadyToCreateChart();
+                    },
+                });
+            } else {
+                // File does not exist, mark as loaded
+                datasetsLoaded.sma = true;
+                checkIfReadyToCreateChart();
+            }
+        })
+        .catch(error => {
+            console.error('Error checking SMA file existence:', error);
+            datasetsLoaded.sma = true; // Proceed even if error
+            checkIfReadyToCreateChart();
+        });
+
+    // Load other datasets as before...
+    // Asset Data
     if (loadAsset) {
         Papa.parse('./output/asset.txt', {
             download: true,
@@ -343,12 +329,13 @@ function plotData() {
             },
             error: function (error) {
                 console.error('Error parsing asset data file:', error);
-                datasetsLoaded.asset = true; // Proceed even if error
+                datasetsLoaded.asset = true;
                 checkIfReadyToCreateChart();
             },
         });
     }
 
+    // Portfolio Data
     Papa.parse('./output/portfolio.txt', {
         download: true,
         delimiter: ',',
@@ -363,7 +350,6 @@ function plotData() {
         complete: function () {
             datasetsLoaded.portfolio = true;
             checkIfReadyToCreateChart();
-            parseTradesData();
         },
         error: function (error) {
             console.error('Error parsing portfolio data file:', error);
@@ -372,6 +358,7 @@ function plotData() {
         },
     });
 
+    // Untouched Portfolio Data
     Papa.parse('./output/untouched_portfolio.txt', {
         download: true,
         delimiter: ',',
@@ -394,6 +381,7 @@ function plotData() {
         },
     });
 
+    // EMA Data
     if (loadEMA) {
         Papa.parse('./output/expma.txt', {
             download: true,
@@ -418,6 +406,7 @@ function plotData() {
         });
     }
 
+    // EMAMicro Data
     if (loadEMAMicro) {
         Papa.parse('./output/expma_micro.txt', {
             download: true,
@@ -435,23 +424,24 @@ function plotData() {
                 checkIfReadyToCreateChart();
             },
             error: function (error) {
-                console.error('Error parsing EMA micro data file:', error);
+                console.error('Error parsing EMAMicro data file:', error);
                 datasetsLoaded.emaMicro = true;
                 checkIfReadyToCreateChart();
             },
         });
     }
 
-    if (slopeDisplayInterval > 0) {
+    // EMA Slopes (if slopeDisplayInterval != 0, load them)
+    if (slopeDisplayInterval !== 0) {
         Papa.parse('./output/ema_slopes.txt', {
             download: true,
             delimiter: ',',
             dynamicTyping: true,
             step: function (row) {
-                const [timestamp, slopeValue] = row.data;
-                if (timestamp && slopeValue !== undefined) {
+                const [timestamp, slope] = row.data;
+                if (timestamp && slope !== undefined) {
                     timestampsSlopes.push(new Date(timestamp * 1000));
-                    slopes.push(slopeValue);
+                    slopes.push(slope);
                 }
             },
             complete: function () {
@@ -466,6 +456,43 @@ function plotData() {
         });
     }
 
+    // Trades Data
+    Papa.parse('./output/trades.txt', {
+        download: true,
+        delimiter: ',',
+        dynamicTyping: true,
+        step: function (row) {
+            const [timestamp, price, action, reason] = row.data;
+            if (timestamp && price !== undefined && action) {
+                if (action.toLowerCase() === 'buy') {
+                    buyTimestamps.push(new Date(timestamp * 1000));
+                    buyValues.push(price);
+                    buyReasons.push(reason || '');
+                } else if (action.toLowerCase() === 'sell') {
+                    sellTimestamps.push(new Date(timestamp * 1000));
+                    sellValues.push(price);
+                    sellReasons.push(reason || '');
+                }
+                tradesLineCount++;
+                if (tradesLineCount > 3000) {
+                    // Skip further processing if too many lines
+                    skipTrades = true;
+                    this.abort();
+                }
+            }
+        },
+        complete: function () {
+            datasetsLoaded.trades = true;
+            checkIfReadyToCreateChart();
+        },
+        error: function (error) {
+            console.error('Error parsing trades data file:', error);
+            datasetsLoaded.trades = true;
+            checkIfReadyToCreateChart();
+        },
+    });
+
+    // Margin Data
     if (showMargin) {
         Papa.parse('./output/margin.txt', {
             download: true,
@@ -490,102 +517,26 @@ function plotData() {
         });
     }
 
-    // Attempt to load direction data if desired
+    // Direction Data
     if (loadDirection) {
-        fetch('./output/direction.txt', { method: 'HEAD' })
-            .then(response => {
-                if (response.ok) {
-                    // File exists, parse it
-                    Papa.parse('./output/direction.txt', {
-                        download: true,
-                        delimiter: ',',
-                        dynamicTyping: true,
-                        step: function (row) {
-                            const [timestamp, value] = row.data;
-                            if (timestamp && value !== undefined) {
-                                timestampsDirection.push(new Date(timestamp * 1000));
-                                valuesDirection.push(value);
-                            }
-                        },
-                        complete: function () {
-                            datasetsLoaded.direction = true;
-                            checkIfReadyToCreateChart();
-                        },
-                        error: function (error) {
-                            console.error('Error parsing direction data file:', error);
-                            datasetsLoaded.direction = true; // Proceed even if error
-                            checkIfReadyToCreateChart();
-                        },
-                    });
-                } else {
-                    // File does not exist
-                    datasetsLoaded.direction = true;
-                    checkIfReadyToCreateChart();
-                }
-            })
-            .catch(error => {
-                console.error('Error checking direction file existence:', error);
-                datasetsLoaded.direction = true;
-                checkIfReadyToCreateChart();
-            });
-    }
-
-    function parseTradesData() {
-        Papa.parse('./output/trades.txt', {
+        Papa.parse('./output/direction.txt', {
             download: true,
             delimiter: ',',
             dynamicTyping: true,
             step: function (row) {
-                tradesLineCount += 1;
-                if (tradesLineCount > 3000) {
-                    skipTrades = true;
-                    return;
-                }
-
-                const [timestamp, action, reason] = row.data;
-                if (timestamp && action && reason) {
-                    const date = new Date(timestamp * 1000);
-                    const portfolioIndex = timestampsPortfolio.findIndex((t) => t.getTime() === date.getTime());
-                    let value;
-                    if (portfolioIndex !== -1) {
-                        value = valuesPortfolio[portfolioIndex];
-                    } else {
-                        let closestIndex = -1;
-                        let minDiff = Infinity;
-                        timestampsPortfolio.forEach((t, idx) => {
-                            const diff = Math.abs(t - date);
-                            if (diff < minDiff) {
-                                minDiff = diff;
-                                closestIndex = idx;
-                            }
-                        });
-                        if (closestIndex !== -1) {
-                            value = valuesPortfolio[closestIndex];
-                        }
-                    }
-                    if (value !== undefined) {
-                        if (action === 'buy') {
-                            buyTimestamps.push(date);
-                            buyValues.push(value);
-                            buyReasons.push(reason);
-                        } else if (action === 'sell') {
-                            sellTimestamps.push(date);
-                            sellValues.push(value);
-                            sellReasons.push(reason);
-                        }
-                    }
+                const [timestamp, value] = row.data;
+                if (timestamp && value !== undefined) {
+                    timestampsDirection.push(new Date(timestamp * 1000));
+                    valuesDirection.push(value);
                 }
             },
             complete: function () {
-                if (skipTrades) {
-                    console.warn('Trades file has more than 3000 lines. Skipping trades plotting.');
-                }
-                datasetsLoaded.trades = true;
+                datasetsLoaded.direction = true;
                 checkIfReadyToCreateChart();
             },
             error: function (error) {
-                console.error('Error parsing trades file:', error);
-                datasetsLoaded.trades = true;
+                console.error('Error parsing direction data file:', error);
+                datasetsLoaded.direction = true;
                 checkIfReadyToCreateChart();
             },
         });
