@@ -74,6 +74,7 @@ function plotData() {
 
     let fourBillionTimestamp = null;
     let fourBillionValue = null;
+    const FOUR_BILLION = 4000000000;
 
     function createChart() {
         const traces = [];
@@ -238,6 +239,24 @@ function plotData() {
             });
         }
 
+        // If in logarithmic mode and we have a recorded time/value for the 4 billion mark, add a blue cross
+        if (logarithmic && fourBillionTimestamp && fourBillionValue) {
+            const fourBillionTrace = {
+                x: [fourBillionTimestamp],
+                y: [fourBillionValue],
+                mode: 'markers',
+                type: 'scatter',
+                name: '4 Billion Mark',
+                yaxis: 'y2',
+                marker: {
+                    color: 'blue',
+                    symbol: 'x',
+                    size: 12,
+                },
+            };
+            traces.push(fourBillionTrace);
+        }
+
         const layout = {
             title: titleContents,
             xaxis: { title: 'Time' },
@@ -309,7 +328,6 @@ function plotData() {
             checkIfReadyToCreateChart();
         });
 
-    // Load other datasets as before...
     // Asset Data
     if (loadAsset) {
         Papa.parse('./output/asset.txt', {
@@ -345,6 +363,11 @@ function plotData() {
             if (timestamp && value !== undefined) {
                 timestampsPortfolio.push(new Date(timestamp * 1000));
                 valuesPortfolio.push(value);
+                // Check for 4 billion mark
+                if (fourBillionTimestamp === null && value >= FOUR_BILLION) {
+                    fourBillionTimestamp = new Date(timestamp * 1000);
+                    fourBillionValue = value;
+                }
             }
         },
         complete: function () {
@@ -477,7 +500,6 @@ function plotData() {
                 if (tradesLineCount > 3000) {
                     // Skip further processing if too many lines
                     skipTrades = true;
-                    //this.stop();
                 }
             }
         },
