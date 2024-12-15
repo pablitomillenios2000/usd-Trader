@@ -8,7 +8,7 @@ sma_file = "../view/output/simple_ma.txt"
 slope_file = "../view/output/simple_ma_slope.txt"
 
 # Parameters
-sma_window = 100000  # Configure the SMA window size
+sma_window = 60000  # Configure the SMA window size
 
 # Ensure the asset file exists
 if not os.path.exists(asset_file):
