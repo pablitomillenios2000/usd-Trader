@@ -1,26 +1,10 @@
 let titleContents = '';
 
-function setTitleWithPairName() {
-    fetch('./output/pairname.txt')
-        .then(response => response.text())
-        .then(pairName => {
-            const trimmedPairName = pairName.trim();
-            if (trimmedPairName) {
-                // Update the browser tab title
-                document.title = `SIMULATION - ${trimmedPairName} Data Chart`;
-                titleContents = `SIMULATION - ${trimmedPairName} Data Chart`;
-            }
-        })
-        .catch(error => console.error('Error fetching pair name:', error));
-}
-
-
-
 function plotData() {
     // Variables to skip loading certain files
     const loadEMA = true;       // Set to false to skip loading expma.txt
-    const loadEMAMicro = false;  // Set to false to skip loading expma_micro.txt
-    const loadAsset = false;     // Set to false to skip loading asset.txt
+    const loadEMAMicro = true;  // Set to false to skip loading expma_micro.txt
+    const loadAsset = true;     // Set to false to skip loading asset.txt
 
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
@@ -528,6 +512,20 @@ function plotData() {
             },
         });
     }
+}
+
+function setTitleWithPairName() {
+    fetch('./output/pairname.txt')
+        .then(response => response.text())
+        .then(pairName => {
+            const trimmedPairName = pairName.trim();
+            if (trimmedPairName) {
+                // Update the browser tab title
+                document.title = `SIMULATION - ${trimmedPairName} Data Chart`;
+                titleContents = `SIMULATION - ${trimmedPairName} Data Chart`;
+            }
+        })
+        .catch(error => console.error('Error fetching pair name:', error));
 }
 
 // Add a div for the chart in the DOM
