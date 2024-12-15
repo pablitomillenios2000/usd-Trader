@@ -6,6 +6,9 @@ function plotData() {
     const loadEMAMicro = true;  // Set to false to skip loading expma_micro.txt
     const loadAsset = true;     // Set to false to skip loading asset.txt
 
+    // Attempt to load direction file
+    const loadDirection = true; // Set to false if you do not want to load direction data
+
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
 
@@ -45,6 +48,10 @@ function plotData() {
     const timestampsMargin = [];
     const valuesMargin = [];
 
+    // New arrays for direction data
+    const timestampsDirection = [];
+    const valuesDirection = [];
+
     let tradesLineCount = 0; // Track the number of lines in the trades file
     let skipTrades = false; // Flag to skip processing trades if line count exceeds 3000
 
@@ -57,6 +64,7 @@ function plotData() {
         emaSlopes: slopeDisplayInterval === 0 ? true : false,
         trades: false,
         margin: !showMargin,
+        direction: !loadDirection, // Initially false if we intend to load direction
     };
 
     let fourBillionTimestamp = null;
@@ -143,6 +151,20 @@ function plotData() {
                 line: { color: 'red' },
             };
             traces.push(marginTrace);
+        }
+
+        // Direction data as scatter points if available
+        if (loadDirection && timestampsDirection.length > 0) {
+            const directionTrace = {
+                x: timestampsDirection,
+                y: valuesDirection,
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Direction Points',
+                yaxis: 'y2',
+                marker: { color: 'blue', size: 8 },
+            };
+            traces.push(directionTrace);
         }
 
         const annotations = [];
@@ -321,6 +343,8 @@ function plotData() {
             },
             error: function (error) {
                 console.error('Error parsing asset data file:', error);
+                datasetsLoaded.asset = true; // Proceed even if error
+                checkIfReadyToCreateChart();
             },
         });
     }
@@ -343,6 +367,8 @@ function plotData() {
         },
         error: function (error) {
             console.error('Error parsing portfolio data file:', error);
+            datasetsLoaded.portfolio = true;
+            checkIfReadyToCreateChart();
         },
     });
 
@@ -363,6 +389,8 @@ function plotData() {
         },
         error: function (error) {
             console.error('Error parsing untouched portfolio data file:', error);
+            datasetsLoaded.untouchedPortfolio = true;
+            checkIfReadyToCreateChart();
         },
     });
 
@@ -384,6 +412,8 @@ function plotData() {
             },
             error: function (error) {
                 console.error('Error parsing EMA data file:', error);
+                datasetsLoaded.ema = true;
+                checkIfReadyToCreateChart();
             },
         });
     }
@@ -406,6 +436,8 @@ function plotData() {
             },
             error: function (error) {
                 console.error('Error parsing EMA micro data file:', error);
+                datasetsLoaded.emaMicro = true;
+                checkIfReadyToCreateChart();
             },
         });
     }
@@ -428,6 +460,8 @@ function plotData() {
             },
             error: function (error) {
                 console.error('Error parsing EMA slopes data file:', error);
+                datasetsLoaded.emaSlopes = true;
+                checkIfReadyToCreateChart();
             },
         });
     }
@@ -450,8 +484,50 @@ function plotData() {
             },
             error: function (error) {
                 console.error('Error parsing margin data file:', error);
+                datasetsLoaded.margin = true;
+                checkIfReadyToCreateChart();
             },
         });
+    }
+
+    // Attempt to load direction data if desired
+    if (loadDirection) {
+        fetch('./output/direction.txt', { method: 'HEAD' })
+            .then(response => {
+                if (response.ok) {
+                    // File exists, parse it
+                    Papa.parse('./output/direction.txt', {
+                        download: true,
+                        delimiter: ',',
+                        dynamicTyping: true,
+                        step: function (row) {
+                            const [timestamp, value] = row.data;
+                            if (timestamp && value !== undefined) {
+                                timestampsDirection.push(new Date(timestamp * 1000));
+                                valuesDirection.push(value);
+                            }
+                        },
+                        complete: function () {
+                            datasetsLoaded.direction = true;
+                            checkIfReadyToCreateChart();
+                        },
+                        error: function (error) {
+                            console.error('Error parsing direction data file:', error);
+                            datasetsLoaded.direction = true; // Proceed even if error
+                            checkIfReadyToCreateChart();
+                        },
+                    });
+                } else {
+                    // File does not exist
+                    datasetsLoaded.direction = true;
+                    checkIfReadyToCreateChart();
+                }
+            })
+            .catch(error => {
+                console.error('Error checking direction file existence:', error);
+                datasetsLoaded.direction = true;
+                checkIfReadyToCreateChart();
+            });
     }
 
     function parseTradesData() {
@@ -509,6 +585,8 @@ function plotData() {
             },
             error: function (error) {
                 console.error('Error parsing trades file:', error);
+                datasetsLoaded.trades = true;
+                checkIfReadyToCreateChart();
             },
         });
     }
@@ -534,4 +612,3 @@ document.body.innerHTML += '<div id="chart" style="width: 100%; height: 98vh;"><
 // Call the function to plot the data
 setTitleWithPairName();
 plotData();
-
