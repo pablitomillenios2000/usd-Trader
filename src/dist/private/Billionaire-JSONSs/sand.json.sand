@@ -1,0 +1,17 @@
+{
+    "key": "",
+    "secret": "",
+    "pair":"h",
+    "exchange":"Binance",
+    "margin_annual_interest_percentage": 6.12,
+    "trade_fee_percentage": 0.1,
+    "investment": 5000,
+    "margin": 4, //4x margin
+    "sl_percentage": 1.5,
+    "input_file": "../assets/SANDUSDT.csv",
+    "start_date": "2020-12-01", //"2021-01-01",
+    "end_date": "2021-11-05", //"2021-08-20",
+    "ema_days": 1800, //1800
+    "ema_days_micro": 200,
+    "min_positive_slope": -99
+}
