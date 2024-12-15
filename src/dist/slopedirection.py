@@ -1,7 +1,13 @@
 import os
 from datetime import datetime
 
+# This file writes to direction.txt and groups in upwards 5000 
+# and downwards 4000
+
 # --- ADJUSTMENT VARIABLES ---
+# Slope threshold to consider a value positive
+considered_positive = 0.000025
+
 # Number of consecutive points needed for the first confirmed direction change.
 stable_count_initial = 300
 # Number of consecutive points needed for subsequent changes once direction is established.
@@ -102,8 +108,8 @@ def multi_stage_hysteresis_filter(directions, stable_count_initial, stable_count
 def write_direction_file(slope_data, output_file):
     """
     Writes the direction file based on EMA slopes.
-    If slope > 0, direction = 5000
-    If slope <= 0, direction = 4000
+    If slope > considered_positive, direction = 5000
+    If slope <= considered_positive, direction = 4000
 
     Applies multi-stage hysteresis filtering if enabled.
 
@@ -113,7 +119,7 @@ def write_direction_file(slope_data, output_file):
     """
     # Convert slopes to directions
     timestamps = [ts for ts, _ in slope_data]
-    directions = [5000 if slope > 0 else 4000 for _, slope in slope_data]
+    directions = [5000 if slope > considered_positive else 4000 for _, slope in slope_data]
 
     # Apply multi-stage hysteresis if desired
     if apply_hysteresis:
