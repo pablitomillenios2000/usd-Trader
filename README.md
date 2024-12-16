@@ -1,25 +1,9 @@
-# Crypto Trader V 2.0
+# Crypto Trader V 2.5
 
 ![Crypto](./docs/img/crypto.png)
 
-1
-
-start the viewer with
-
-python3 -m http.server
-
-2
-
-in the python/data folder run
-
-keep-fetching.py
-
-3
-
-in the dist folder run
-
-bucle.py
-
+Please use the shell scripts available in the root folder to start,
+stop, and diagnose the server
 
 [CSV Backtracking Data Downlaod](docs/CSV-DATA.md)
 
