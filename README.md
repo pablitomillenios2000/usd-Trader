@@ -12,6 +12,8 @@ binance-api.json
 file in the dist folder. In the private folder there are examples
 The API-Keys are mandatory and can be obtained on the crypto exchange
 
+[Keeping system time sharp](docs/chrony.md)
+
 [CSV Backtracking Data Downlaod](docs/CSV-DATA.md)
 
 [Google Cloud Installation Instructions](docs/GOOGLE-CLOUD.md)
