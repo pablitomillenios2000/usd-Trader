@@ -1,6 +1,9 @@
 let titleContents = '';
 
 function plotData() {
+    // Variable to control logarithmic scale
+    const logarithmic = true; // Set to true to use logarithmic scale for portfolio value
+
     // Variables to skip loading certain files
     const loadEMA = false;       // Set to false to skip loading expma.txt
     const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
@@ -11,9 +14,6 @@ function plotData() {
 
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
-
-    // Variable to control logarithmic scale
-    const logarithmic = false; // Set to true to use logarithmic scale for portfolio value
 
     // Variable to toggle the display of the margin data
     const showMargin = false; // Set to true to display the margin data
@@ -72,9 +72,11 @@ function plotData() {
         sma: false, // Will set to true when SMA file is loaded or confirmed absent
     };
 
-    let fourBillionTimestamp = null;
-    let fourBillionValue = null;
-    const FOUR_BILLION = 4000000000;
+    // Milestone values to mark on the chart
+    const milestones = [500000, 1000000, 100000000, 4000000000];
+    const milestoneColors = ['lightblue', 'cornflowerblue', 'dodgerblue', 'blue'];
+    const milestoneTimestamps = Array(milestones.length).fill(null);
+    const milestoneValues = Array(milestones.length).fill(null);
 
     function createChart() {
         const traces = [];
@@ -239,22 +241,25 @@ function plotData() {
             });
         }
 
-        // If in logarithmic mode and we have a recorded time/value for the 4 billion mark, add a blue cross
-        if (logarithmic && fourBillionTimestamp && fourBillionValue) {
-            const fourBillionTrace = {
-                x: [fourBillionTimestamp],
-                y: [fourBillionValue],
-                mode: 'markers',
-                type: 'scatter',
-                name: '4 Billion Mark',
-                yaxis: 'y2',
-                marker: {
-                    color: 'blue',
-                    symbol: 'x',
-                    size: 12,
-                },
-            };
-            traces.push(fourBillionTrace);
+        // If in logarithmic mode, add milestone markers if they exist
+        if (logarithmic) {
+            milestones.forEach((mark, i) => {
+                if (milestoneTimestamps[i] && milestoneValues[i]) {
+                    traces.push({
+                        x: [milestoneTimestamps[i]],
+                        y: [milestoneValues[i]],
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: `${mark.toLocaleString()} Mark`,
+                        yaxis: 'y2',
+                        marker: {
+                            color: milestoneColors[i],
+                            symbol: 'x',
+                            size: 12,
+                        },
+                    });
+                }
+            });
         }
 
         const layout = {
@@ -363,11 +368,14 @@ function plotData() {
             if (timestamp && value !== undefined) {
                 timestampsPortfolio.push(new Date(timestamp * 1000));
                 valuesPortfolio.push(value);
-                // Check for 4 billion mark
-                if (fourBillionTimestamp === null && value >= FOUR_BILLION) {
-                    fourBillionTimestamp = new Date(timestamp * 1000);
-                    fourBillionValue = value;
-                }
+
+                // Check for each milestone
+                milestones.forEach((mark, i) => {
+                    if (milestoneTimestamps[i] === null && value >= mark) {
+                        milestoneTimestamps[i] = new Date(timestamp * 1000);
+                        milestoneValues[i] = value;
+                    }
+                });
             }
         },
         complete: function () {
@@ -454,7 +462,7 @@ function plotData() {
         });
     }
 
-    // EMA Slopes (if slopeDisplayInterval != 0, load them)
+    // EMA Slopes (if slopeDisplayInterval != 0)
     if (slopeDisplayInterval !== 0) {
         Papa.parse('./output/ema_slopes.txt', {
             download: true,
