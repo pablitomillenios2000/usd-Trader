@@ -2,8 +2,15 @@
 
 ![Crypto](./docs/img/crypto.png)
 
-Please use the shell scripts available in the root folder to start,
-stop, and diagnose the server
+## Please use the shell scripts available in the root folder to start, stop, and diagnose the server
+
+ 
+Before running the server you sould create the
+
+binance-api.json 
+
+file in the dist folder. In the private folder there are examples
+The API-Keys are mandatory and can be obtained on the crypto exchange
 
 [CSV Backtracking Data Downlaod](docs/CSV-DATA.md)
 
