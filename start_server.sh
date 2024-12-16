@@ -3,6 +3,27 @@
 clear
 echo ""
 
+
+
+# File containing the JSON data
+CONFIG_FILE="./src/dist/apikey-binance.json"
+
+# Convert JSON5 to JSON by stripping comments and extra commas
+JSON=$(sed '/^[[:space:]]*\/\//d; s/[[:space:]]*\/\/.*$//; /^[[:space:]]*$/d' "$CONFIG_FILE" | sed ':a;N;$!ba;s/,\n[[:space:]]*}/}/g')
+
+# Read the JSON keys using jq
+PAIR=$(echo "$JSON" | jq -r '.pair')
+EXCHANGE=$(echo "$JSON" | jq -r '.exchange')
+INPUT_FILE=$(echo "$JSON" | jq -r '.input_file')
+
+# Print the results
+echo "Pair: $PAIR"
+echo "Exchange: $EXCHANGE"
+echo "Input File: $INPUT_FILE"
+echo ""
+echo "Please double-check the .json file to be sure"
+echo ""
+
 # Define the port
 PORT=8000
 
