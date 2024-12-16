@@ -75,8 +75,16 @@ function plotData() {
         margin: !showMargin,
     };
 
-    let fourBillionTimestamp = null;
-    let fourBillionValue = null;
+    // Thresholds and their colors (lighter to darker)
+    const thresholds = [
+        { value: 100000, label: '100K', color: '#87CEFA' },    // Light blue
+        { value: 1000000, label: '1M', color: '#6495ED' },     // Cornflower blue
+        { value: 100000000, label: '100M', color: '#4169E1' }, // Royal blue
+        { value: 4000000000, label: '4B', color: '#00008B' }   // Dark blue
+    ];
+
+    let shapes = [];
+    let annotations = [];
 
     function createChart() {
         const traces = [];
@@ -161,7 +169,6 @@ function plotData() {
             traces.push(marginTrace);
         }
 
-        const annotations = [];
         const totalTrades = buyTimestamps.length + sellTimestamps.length;
 
         // Show trades in log mode only if totalTrades <= 100
@@ -215,66 +222,6 @@ function plotData() {
             });
         }
 
-        let shapes = [];
-        if (fourBillionTimestamp && fourBillionValue) {
-            const halfDay = 12 * 3600 * 1000;
-            const x0Time = new Date(fourBillionTimestamp.getTime() - halfDay);
-            const x1Time = new Date(fourBillionTimestamp.getTime() + halfDay);
-
-            const y0Value = fourBillionValue / 2;
-            const y1Value = fourBillionValue * 2;
-
-            shapes = [
-                {
-                    type: 'line',
-                    layer: 'above',
-                    xref: 'x',
-                    yref: 'y2',
-                    x0: x0Time,
-                    x1: x1Time,
-                    y0: fourBillionValue,
-                    y1: fourBillionValue,
-                    line: {
-                        color: 'blue',
-                        width: 8,
-                        dash: 'solid',
-                    }
-                },
-                {
-                    type: 'line',
-                    layer: 'above',
-                    xref: 'x',
-                    yref: 'y2',
-                    x0: fourBillionTimestamp,
-                    x1: fourBillionTimestamp,
-                    y0: y0Value,
-                    y1: y1Value,
-                    line: {
-                        color: 'blue',
-                        width: 8,
-                        dash: 'solid',
-                    }
-                }
-            ];
-
-            annotations.push({
-                x: fourBillionTimestamp,
-                y: fourBillionValue,
-                xref: 'x',
-                yref: 'y2',
-                text: '4B',
-                showarrow: true,
-                arrowhead: 2,
-                arrowsize: 2,
-                arrowwidth: 2,
-                arrowcolor: 'blue',
-                ax: 20,
-                ay: -30,
-                font: { size: 16, color: 'blue', family: 'Arial Black' },
-                bgcolor: 'rgba(255, 255, 255, 0.7)'
-            });
-        }
-
         const layout = {
             title: titleContents,
             xaxis: { title: 'Time' },
@@ -306,14 +253,83 @@ function plotData() {
     function checkIfReadyToCreateChart() {
         const allLoaded = Object.values(datasetsLoaded).every((loaded) => loaded);
         if (allLoaded) {
-            const fourBillion = 4000000000;
-            for (let i = 0; i < valuesPortfolio.length; i++) {
-                if (valuesPortfolio[i] >= fourBillion) {
-                    fourBillionTimestamp = timestampsPortfolio[i];
-                    fourBillionValue = valuesPortfolio[i];
-                    break;
+            // For each threshold, find the first occurrence in the portfolio where this value is reached or exceeded
+            thresholds.forEach(threshold => {
+                let thresholdTimestamp = null;
+                let thresholdValue = threshold.value;
+
+                for (let i = 0; i < valuesPortfolio.length; i++) {
+                    if (valuesPortfolio[i] >= thresholdValue) {
+                        thresholdTimestamp = timestampsPortfolio[i];
+                        break;
+                    }
                 }
-            }
+
+                if (thresholdTimestamp) {
+                    // Create a cross shape at this point
+                    // We'll pick a vertical and horizontal line intersecting at the threshold point
+                    const halfDay = 12 * 3600 * 1000;
+                    const x0Time = new Date(thresholdTimestamp.getTime() - halfDay);
+                    const x1Time = new Date(thresholdTimestamp.getTime() + halfDay);
+
+                    // For the Y-axis, we pick a range around the thresholdValue
+                    const y0Value = thresholdValue / 2;
+                    const y1Value = thresholdValue * 2;
+
+                    // Vertical line
+                    shapes.push({
+                        type: 'line',
+                        layer: 'above',
+                        xref: 'x',
+                        yref: 'y2',
+                        x0: thresholdTimestamp,
+                        x1: thresholdTimestamp,
+                        y0: y0Value,
+                        y1: y1Value,
+                        line: {
+                            color: threshold.color,
+                            width: 6,
+                            dash: 'solid',
+                        }
+                    });
+
+                    // Horizontal line
+                    shapes.push({
+                        type: 'line',
+                        layer: 'above',
+                        xref: 'x',
+                        yref: 'y2',
+                        x0: x0Time,
+                        x1: x1Time,
+                        y0: thresholdValue,
+                        y1: thresholdValue,
+                        line: {
+                            color: threshold.color,
+                            width: 6,
+                            dash: 'solid',
+                        }
+                    });
+
+                    // Add annotation
+                    annotations.push({
+                        x: thresholdTimestamp,
+                        y: thresholdValue,
+                        xref: 'x',
+                        yref: 'y2',
+                        text: threshold.label,
+                        showarrow: true,
+                        arrowhead: 2,
+                        arrowsize: 2,
+                        arrowwidth: 2,
+                        arrowcolor: threshold.color,
+                        ax: 20,
+                        ay: -30,
+                        font: { size: 16, color: threshold.color, family: 'Arial Black' },
+                        bgcolor: 'rgba(255, 255, 255, 0.7)'
+                    });
+                }
+            });
+
             createChart();
         }
     }
@@ -536,4 +552,3 @@ document.body.innerHTML += '<div id="chart" style="width: 100%; height: 98vh;"><
 // Call the function to plot the data
 setTitleWithPairName();
 plotData();
-
