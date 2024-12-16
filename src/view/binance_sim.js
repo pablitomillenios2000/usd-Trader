@@ -14,13 +14,11 @@ function setTitleWithPairName() {
         .catch(error => console.error('Error fetching pair name:', error));
 }
 
-
-
 function plotData() {
     // Variables to skip loading certain files
     const loadEMA = true;       // Set to false to skip loading expma.txt
-    const loadEMAMicro = false;  // Set to false to skip loading expma_micro.txt
-    const loadAsset = false;     // Set to false to skip loading asset.txt
+    const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
+    const loadAsset = false;    // Set to false to skip loading asset.txt
 
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
@@ -63,6 +61,7 @@ function plotData() {
 
     let tradesLineCount = 0; // Track the number of lines in the trades file
     let skipTrades = false; // Flag to skip processing trades if line count exceeds 3000
+    let showTrades = true;  // Will be set to false if more than 1000 total trades
 
     let datasetsLoaded = {
         asset: !loadAsset,
@@ -77,14 +76,15 @@ function plotData() {
 
     // Thresholds and their colors (lighter to darker)
     const thresholds = [
-        { value: 100000, label: '100K', color: '#87CEFA' },    // Light blue
-        { value: 1000000, label: '1M', color: '#6495ED' },     // Cornflower blue
-        { value: 100000000, label: '100M', color: '#4169E1' }, // Royal blue
-        { value: 4000000000, label: '4B', color: '#00008B' }   // Dark blue
+        { value: 100000, label: '100K', color: '#87CEFA' },
+        { value: 1000000, label: '1M', color: '#6495ED' },
+        { value: 100000000, label: '100M', color: '#4169E1' },
+        { value: 4000000000, label: '4B', color: '#00008B' }
     ];
 
     let shapes = [];
     let annotations = [];
+    let thresholdTraces = []; // Will store threshold cross traces
 
     function createChart() {
         const traces = [];
@@ -169,12 +169,13 @@ function plotData() {
             traces.push(marginTrace);
         }
 
-        const totalTrades = buyTimestamps.length + sellTimestamps.length;
+        // Add threshold cross markers
+        if (thresholdTraces.length > 0) {
+            traces.push(...thresholdTraces);
+        }
 
-        // Show trades in log mode only if totalTrades <= 100
-        const showTrades = (totalTrades <= 100) || !logarithmic;
-
-        if (showTrades && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
+        // Add trades if allowed (showTrades = true and skipTrades = false)
+        if (showTrades && !skipTrades && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
             const buyTrace = {
                 x: buyTimestamps,
                 y: buyValues,
@@ -195,7 +196,7 @@ function plotData() {
             };
             traces.push(buyTrace, sellTrace);
 
-            // Add annotations for buy/sell trades
+            // Add annotations for buy/sell trades if you want them
             buyTimestamps.forEach((timestamp, index) => {
                 annotations.push({
                     x: timestamp,
@@ -266,66 +267,21 @@ function plotData() {
                 }
 
                 if (thresholdTimestamp) {
-                    // Create a cross shape at this point
-                    // We'll pick a vertical and horizontal line intersecting at the threshold point
-                    const halfDay = 12 * 3600 * 1000;
-                    const x0Time = new Date(thresholdTimestamp.getTime() - halfDay);
-                    const x1Time = new Date(thresholdTimestamp.getTime() + halfDay);
-
-                    // For the Y-axis, we pick a range around the thresholdValue
-                    const y0Value = thresholdValue / 2;
-                    const y1Value = thresholdValue * 2;
-
-                    // Vertical line
-                    shapes.push({
-                        type: 'line',
-                        layer: 'above',
-                        xref: 'x',
-                        yref: 'y2',
-                        x0: thresholdTimestamp,
-                        x1: thresholdTimestamp,
-                        y0: y0Value,
-                        y1: y1Value,
-                        line: {
-                            color: threshold.color,
-                            width: 6,
-                            dash: 'solid',
-                        }
-                    });
-
-                    // Horizontal line
-                    shapes.push({
-                        type: 'line',
-                        layer: 'above',
-                        xref: 'x',
-                        yref: 'y2',
-                        x0: x0Time,
-                        x1: x1Time,
-                        y0: thresholdValue,
-                        y1: thresholdValue,
-                        line: {
-                            color: threshold.color,
-                            width: 6,
-                            dash: 'solid',
-                        }
-                    });
-
-                    // Add annotation
-                    annotations.push({
-                        x: thresholdTimestamp,
-                        y: thresholdValue,
-                        xref: 'x',
-                        yref: 'y2',
-                        text: threshold.label,
-                        showarrow: true,
-                        arrowhead: 2,
-                        arrowsize: 2,
-                        arrowwidth: 2,
-                        arrowcolor: threshold.color,
-                        ax: 20,
-                        ay: -30,
-                        font: { size: 16, color: threshold.color, family: 'Arial Black' },
-                        bgcolor: 'rgba(255, 255, 255, 0.7)'
+                    // Add a cross marker at the threshold point
+                    thresholdTraces.push({
+                        x: [thresholdTimestamp],
+                        y: [thresholdValue],
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: threshold.label,
+                        yaxis: 'y2',
+                        marker: {
+                            symbol: 'x',
+                            size: 12,
+                            color: threshold.color
+                        },
+                        hoverinfo: 'text',
+                        hovertext: `Portfolio reached ${threshold.label} (${thresholdValue.toLocaleString()})`
                     });
                 }
             });
@@ -536,6 +492,13 @@ function plotData() {
                 if (skipTrades) {
                     console.warn('Trades file has more than 3000 lines. Skipping trades plotting.');
                 }
+                // Check total trades count
+                const totalTrades = buyTimestamps.length + sellTimestamps.length;
+                if (totalTrades > 10000) {
+                    // Suppress trades
+                    showTrades = false;
+                }
+
                 datasetsLoaded.trades = true;
                 checkIfReadyToCreateChart();
             },
