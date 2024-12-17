@@ -3,9 +3,6 @@
 clear
 echo ""
 
-rm "./CRYPTO-Trader/src/start_protocol/*.log"
-
-
 # File containing the JSON data
 CONFIG_FILE="./src/dist/apikey-binance.json"
 
@@ -45,7 +42,7 @@ fi
 echo ""
 echo "starting the permanent data fetcher"
 rm ./src/start_protocol/keep_fetching.log
-cd src/python/binance/data/
+cd "src/python/${EXCHANGE}/data/"
 ./keep-fetching.py > ../../../start_protocol/keep_fetching.log & disown $!
 cd ../../../../
 
