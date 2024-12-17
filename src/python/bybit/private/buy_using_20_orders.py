@@ -1,67 +1,21 @@
-from pathlib import Path
 import sys
 import json5
 import math
-from binance.client import Client
-from binance.exceptions import BinanceAPIException, BinanceRequestException
 import time
 import datetime
+from pathlib import Path
+from pybit.spot import HTTP  # pybit library for Bybit Spot
+# Note: pybit has multiple modules, ensure you use the correct Spot endpoint class.
 
-print("Executing Margin BUY order script...")
+print("Executing Margin BUY order script with Bybit...")
+
 home_dir = Path.home()
 
-def sync_server_time(client):
-    """
-    Synchronizes local system time with Binance server time.
-    This updates the client's internal timestamp offset.
-    """
-    try:
-        server_time_response = client.get_server_time()
-        server_time = server_time_response['serverTime']  # in milliseconds
-        local_time = int(time.time() * 1000)  # in milliseconds
-        time_offset = server_time - local_time
-        client.time_offset = time_offset  # Update the client's internal time offset
-
-        # For debugging: Print the server time, local time, and offset
-        server_time_dt = datetime.datetime.fromtimestamp(server_time / 1000.0)
-        local_time_dt = datetime.datetime.fromtimestamp(local_time / 1000.0)
-        offset_seconds = time_offset / 1000.0
-
-        print(f"[Time Sync] Server Time: {server_time_dt} | Local Time: {local_time_dt} | Offset: {offset_seconds} seconds")
-
-    except Exception as e:
-        print(f"Failed to synchronize time: {e}")
-        raise
-
-def place_order_with_retry(client, trading_pair, order_size, max_retries=3):
-    """
-    Place an order with retry logic for timestamp errors.
-    """
-    for attempt in range(1, max_retries + 1):
-        try:
-            order = client.create_margin_order(
-                symbol=trading_pair,
-                side='BUY',
-                type='MARKET',
-                quoteOrderQty=order_size
-            )
-            return order
-        except BinanceAPIException as e:
-            if e.code == -1021:  # Timestamp error
-                print(f"Attempt {attempt}: Timestamp error detected. Resynchronizing time...")
-                sync_server_time(client)
-                # Adding a longer sleep to ensure time sync takes effect
-                time.sleep(2)
-            else:
-                print(f"Binance API Exception on attempt {attempt}: {e.message} (Code: {e.code})")
-                raise
-        except BinanceRequestException as e:
-            print(f"Binance Request Exception on attempt {attempt}: {e}")
-            raise
-        except Exception as e:
-            print(f"General Exception on attempt {attempt}: {e}")
-            raise
-    raise Exception("Failed to place order after multiple retries due to timestamp issues.")
+def get_server_time(client):
+    """ Get Bybit server time (if needed). """
+    resp = client.query('/v2/public/time', method='GET', auth=False)
+    # Example response: {"ret_code":0,"ret_msg":"OK","ext_code":"","ext_info":"","result":{"server_time":1638239422840},"time_now":"1638239422.840441"}
+    return resp['result']['server_time']
 
 def main():
     try:
@@ -77,19 +31,28 @@ def main():
         if not all([api_key, api_secret, trading_pair]):
             raise ValueError("API key, secret, or trading pair not found in the configuration file.")
 
-        # Step 2: Initialize the Binance client
-        client = Client(api_key, api_secret)
+        # Step 2: Initialize the Bybit Spot client
+        # Note: If you are testing, you might want to use the testnet endpoint and keys.
+        client = HTTP(
+            endpoint="https://api.bybit.com", 
+            api_key=api_key,
+            api_secret=api_secret
+        )
 
-        # Step 3: Synchronize time with Binance server
-        sync_server_time(client)
+        # (Optional) Step 3: Fetch server time if needed
+        # Bybit typically doesn't require manual synchronization like Binance.
+        # server_time = get_server_time(client)
+        # local_time = int(time.time() * 1000)
+        # offset = server_time - local_time
+        # print(f"Server time: {datetime.datetime.fromtimestamp(server_time/1000)}, Offset: {offset} ms")
 
-        # Step 4: Fetch the USDC balance from the margin account
-        margin_account_info = client.get_margin_account()
+        # Step 4: Fetch the USDC balance from the spot account
+        account_info = client.query('/spot/v1/account', method='GET')
+        # account_info structure: { "ret_code":0, "result":{"balances":[{"coin":"USDC","free":"...","locked":"..."}]}, ... }
         USDC_balance = 0.0
-
-        for asset in margin_account_info.get('userAssets', []):
-            if asset.get('asset') == 'USDC':
-                USDC_balance = float(asset.get('free', 0))
+        for asset in account_info['result']['balances']:
+            if asset['coin'] == 'USDC':
+                USDC_balance = float(asset['free'])
                 break
 
         if USDC_balance <= 0:
@@ -99,9 +62,11 @@ def main():
         target_balance = USDC_balance * leverage_strength
         borrow_amount = target_balance - USDC_balance
 
-        # Step 6: Check the maximum amount that can be borrowed
-        max_borrowable_info = client.get_max_margin_loan(asset='USDC')
-        max_borrowable = float(max_borrowable_info.get('amount', 0))
+        # Step 6: Check the maximum amount that can be borrowed - Bybit endpoint
+        # According to Bybit Docs: GET /spot/v1/cross-margin/loan-info?coin=USDC
+        loan_info_resp = client.query('/spot/v1/cross-margin/loan-info', method='GET', query={'coin': 'USDC'})
+        # Response example: {"ret_code":0,"result":{"loanable":"1000"},"ret_msg":"OK"}
+        max_borrowable = float(loan_info_resp['result']['loanable'])
 
         # Step 7: Adjust borrow amount if it exceeds the maximum borrowable amount
         if borrow_amount > max_borrowable:
@@ -112,18 +77,25 @@ def main():
         # Step 8: If borrowing is required and within limits, proceed to borrow
         if borrow_amount > 0:
             borrow_amount = math.floor(borrow_amount)
-            try:
-                client.create_margin_loan(asset='USDC', amount=borrow_amount)
-                print(f"Successfully borrowed {borrow_amount} USDC.")
-            except BinanceAPIException as e:
-                print(f"Failed to borrow USDC: {e.message} (Code: {e.code})")
-                raise
-            except Exception as e:
-                print(f"General Exception during borrowing: {e}")
-                raise
+            # POST /spot/v1/cross-margin/loan
+            # Params: coin, qty
+            borrow_resp = client.query('/spot/v1/cross-margin/loan', method='POST', data={'coin':'USDC','qty':str(borrow_amount)})
+            if borrow_resp.get('ret_code') != 0:
+                raise Exception(f"Failed to borrow USDC: {borrow_resp.get('ret_msg')}")
+            print(f"Successfully borrowed {borrow_amount} USDC.")
+
+            # Update USDC_balance after borrow
+            # Wait a moment for balance to update
+            time.sleep(1)
+            account_info = client.query('/spot/v1/account', method='GET')
+            for asset in account_info['result']['balances']:
+                if asset['coin'] == 'USDC':
+                    USDC_balance = float(asset['free'])
+                    break
 
         # Step 9: Calculate the total USDC available and determine order size
-        total_balance = math.floor(USDC_balance + borrow_amount)
+        # After borrowing, USDC_balance should now reflect total (available + borrowed)
+        total_balance = math.floor(USDC_balance)
         num_orders = 20
         order_size = math.floor(total_balance / num_orders)
 
@@ -136,30 +108,44 @@ def main():
         print(f"Type: MARKET")
         print(f"Number of Orders: {num_orders}, Each Order Size: {order_size} USDC")
 
-        # Step 10: Execute multiple smaller margin market buy orders sequentially
+        # Step 10: Execute multiple smaller market buy orders on Bybit Spot
+        # Bybit Spot order endpoint: POST /spot/v1/order
+        # Required params: symbol, side, type, qty (for base), or quoteOrderQty if applicable.
+        # Unlike Binance, Bybit does not always support quoteOrderQty in the same way. 
+        # Bybit expects qty as the BASE amount for market orders. We must convert USDC to base qty.
+        #
+        # For a Market BUY, Bybit requires a 'quoteOrderQty' param (for quote-based orders) on Spot:
+        # According to docs: type=MARKET and side=BUY can support `quoteOrderQty`.
+        # Let's assume we can use `quoteOrderQty` as on Binance.
+        #
+        # If not supported, you'd have to fetch the current price and calculate the base amount.
+        
         for i in range(1, num_orders + 1):
             try:
                 print(f"Placing order {i}/{num_orders} for {order_size} USDC...")
-                order = place_order_with_retry(client, trading_pair, order_size)
-                print(f"Order {i} executed successfully. Order ID: {order.get('orderId')}")
-                # Optional: Print additional order details for debugging
-                # print(json.dumps(order, indent=2))
+
+                order_resp = client.query(
+                    '/spot/v1/order',
+                    method='POST',
+                    data={
+                        'symbol': trading_pair,
+                        'side': 'BUY',
+                        'type': 'MARKET',
+                        'quoteOrderQty': str(order_size)  # Using quote-based order
+                    }
+                )
+
+                if order_resp.get('ret_code') != 0:
+                    print(f"Error placing order {i}: {order_resp.get('ret_msg')}")
+                    break
+
+                print(f"Order {i} executed successfully. Order ID: {order_resp['result']['orderId']}")
                 time.sleep(1)  # Small delay to respect API rate limits
-            except BinanceAPIException as e:
-                print(f"Binance API Exception on order {i}: {e.message} (Code: {e.code})")
-                break
-            except BinanceRequestException as e:
-                print(f"Binance Request Exception on order {i}: {e}")
-                break
+
             except Exception as e:
                 print(f"General Exception on order {i}: {e}")
                 break
 
-    except BinanceAPIException as e:
-        # Display a detailed Binance API error message
-        print(f"Binance API Exception: {e.message} (Code: {e.code})")
-    except BinanceRequestException as e:
-        print(f"Binance Request Exception: {e}")
     except Exception as e:
         # Catch-all for any other exceptions
         print(f"General Exception: {e}")
