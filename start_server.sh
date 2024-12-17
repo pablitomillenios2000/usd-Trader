@@ -62,5 +62,9 @@ sleep 10
 
 python3 ./recompute.py
 
+echo ""
+
+echo "Server start has been triggered. Please load localhost now"
+
 
 
