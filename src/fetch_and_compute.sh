@@ -1,5 +1,8 @@
 clear
 cd "./python/binance/data/"
+python3 "tradeable.py"
+sleep 1
+clear
 python3 "keep-fetching.py" --once
 cd ../../../../
 cd ./src/dist
