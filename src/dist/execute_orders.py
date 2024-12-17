@@ -36,8 +36,8 @@ if __name__ == "__main__":
     last_timestamp_file = "../view/output/last_timestamp.txt"
     trades_file = "../view/output/trades.txt"
 
-    buy_order_file = "../python/private/buy_using_20_orders.py"
-    sell_order_file = "../python/private/sell_using_20_orders.py"
+    buy_order_file = "../python/binance/private/buy_using_20_orders.py"
+    sell_order_file = "../python/binance/private/sell_using_20_orders.py"
 
     # Read the last executed timestamp
     last_timestamp = read_last_timestamp(last_timestamp_file)
