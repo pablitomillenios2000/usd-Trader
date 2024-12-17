@@ -51,6 +51,6 @@ if __name__ == "__main__":
     # Use symbol directly from the config file
     print(f"Checking if the symbol '{symbol}' is tradeable on Binance...")
     if is_tradeable(symbol):
-        print(f"The symbol '{symbol}' is tradeable on Binance.")
+        print(f"YES: The symbol '{symbol}' is tradeable on Binance.")
     else:
-        print(f"The symbol '{symbol}' is NOT tradeable on Binance.")
+        print(f"NO: The symbol '{symbol}' is NOT tradeable on Binance.")
