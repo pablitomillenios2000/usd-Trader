@@ -312,7 +312,7 @@ function plotData() {
         });
 
         const totalTrades = buyTimestamps.length + sellTimestamps.length;
-        if (totalTrades > 10000) {
+        if (totalTrades > 1000) {
             showTrades = false;
         }
     }
