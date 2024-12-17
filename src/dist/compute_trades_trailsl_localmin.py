@@ -13,7 +13,7 @@ with open(api_key_file, 'r') as f:
     config = json5.load(f)
 
 investment = config["investment"]
-trailing_stop_loss_percentage = config["sl_percentage"]  # Defined in the problem
+trailing_stop_loss_percentage = config["sl_percentage"]  # e.g. 1.5 for 1.5%
 
 print("Computing trailing stop loss trades and local minima")
 
@@ -32,40 +32,71 @@ def write_trade(timestamp, action, reason):
     with open(trades_file, 'a') as f:
         f.write(f"{int(timestamp)},{action},{reason}\n")
 
-def find_local_minimum(prices):
+def find_local_minimum(prices, window_size=5):
     """
-    Finds a local minimum in the deque of prices.
-    Expects prices as a deque of length 3: [(t0, p0), (t1, p1), (t2, p2)]
-    Returns the middle element (t1, p1) if it's a local minimum, else None.
+    Finds a local minimum in a larger window of prices.
+    The local minimum is defined as the middle element of
+    the window being strictly less than all other elements.
+
+    Expects `prices` to be a deque or list of tuples (timestamp, price)
+    with length >= window_size.
+
+    Parameters:
+    - prices: deque/list of (timestamp, price) tuples
+    - window_size (int): The size of the window to determine a local minimum.
+                         Should be an odd number so there is a clear "middle" point.
+
+    Returns:
+    - The middle (timestamp, price) tuple if it's a local minimum, otherwise None.
     """
-    if len(prices) < 3:
+    if len(prices) < window_size:
         return None
-    # Middle price is a local minimum if it's less than the one before and after
-    if prices[1][1] < prices[0][1] and prices[1][1] < prices[2][1]:
-        return prices[1]
-    return None
+
+    mid_index = window_size // 2
+    # Extract the middle element
+    mid_timestamp, mid_price = prices[mid_index]
+
+    # Check if this price is less than all other prices in the window
+    for i, (_, p) in enumerate(prices):
+        if i != mid_index and mid_price >= p:
+            return None
+
+    # If we reach here, mid_price is the smallest in this window
+    return (mid_timestamp, mid_price)
 
 def process_trades():
     """Processes the trades based on trailing stop loss and local minima."""
     asset_data = read_asset_file()
     trailing_stop_price = None
     # Initialize to 'sell' state to allow first buy on local minimum
-    last_action = 'sell'  
-    recent_prices = deque(maxlen=3)
+    last_action = 'sell'
+    # We'll keep a 5-point window for detecting local minima
+    recent_prices = deque(maxlen=5)
+    last_stop_loss_sell_timestamp = None  # Track last time we sold due to stop loss
 
     with tqdm(total=len(asset_data), desc="Processing Trades", unit="entry") as pbar:
         for timestamp, price in asset_data:
             recent_prices.append((timestamp, price))
 
             # Check if we can detect a local minimum (only if we're currently 'sold out')
-            if last_action == 'sell' and len(recent_prices) == 3:
+            if last_action == 'sell' and len(recent_prices) == 5:
                 local_minimum = find_local_minimum(recent_prices)
                 if local_minimum is not None:
-                    # Found a local minimum, execute a buy
-                    write_trade(local_minimum[0], 'buy', 'locmin')
-                    last_action = 'buy'
-                    # Set the initial trailing stop price based on the price at buy time
-                    trailing_stop_price = price * (1 - trailing_stop_loss_percentage / 100)
+                    local_min_timestamp = local_minimum[0]
+
+                    # Only buy if it's at least 1 minute after the last stop loss sell
+                    if (last_stop_loss_sell_timestamp is None or 
+                        local_min_timestamp > last_stop_loss_sell_timestamp + 60):
+
+                        # Found a local minimum that meets timing conditions, execute a buy
+                        write_trade(local_min_timestamp, 'buy', 'locmin')
+                        last_action = 'buy'
+                        # Set the initial trailing stop price based on the price at buy time
+                        trailing_stop_price = price * (1 - trailing_stop_loss_percentage / 100)
+                        
+                        # After buying, skip the trailing stop check in this iteration
+                        pbar.update(1)
+                        continue
 
             # If currently in a buy state, manage trailing stop
             if last_action == 'buy':
@@ -81,6 +112,7 @@ def process_trades():
                     write_trade(timestamp, 'sell', 'tsl')
                     last_action = 'sell'
                     trailing_stop_price = None
+                    last_stop_loss_sell_timestamp = timestamp
 
             pbar.update(1)  # Update progress bar on each iteration
 
