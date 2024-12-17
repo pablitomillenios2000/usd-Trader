@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 from pathlib import Path
 import websocket
 import json5
@@ -124,11 +123,7 @@ def on_message(ws, message):
 # Callback function for when the connection is opened
 def on_open(ws):
     print("WebSocket connection opened")
-    # Start a timer to close the websocket after 10 minutes (600 seconds)
-    def close_ws():
-        print("Closing WebSocket connection after 10 minutes")
-        ws.close()
-    threading.Timer(600, close_ws).start()
+    # No timer to close the connection; it stays open indefinitely
 
 # Callback function for when the connection is closed
 def on_close(ws, close_status_code, close_msg):

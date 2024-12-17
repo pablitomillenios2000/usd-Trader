@@ -8,19 +8,19 @@ import pandas as pd
 import time
 import threading
 
-# Load the trading pair from apikey-bybit.json
+# Load the trading pair from apikey-crypto.json
 home_dir = Path.home()
 
 with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-crypto.json", "r") as file:
     config = json5.load(file)
     if "pair" not in config:
-        raise ValueError("The 'pair' key is missing in apikey-bybit.json")
-    symbol = config["pair"].upper()  # Bybit requires uppercase pairs
+        raise ValueError("The 'pair' key is missing in apikey-crypto.json")
+    symbol = config["pair"].upper()  # Bybit expects uppercase
 
 # Define the parameters
-interval = "1"
-ws_url = "wss://stream.bybit.com/v5/public/spot"  # Bybit WebSocket endpoint
-csv_filename = f"../../../assets/{symbol}-realtime.csv"  # Output path
+interval = "1m"
+ws_url = "wss://stream.bybit.com/spot/quote/ws/v2"
+csv_filename = f"../../../assets/{symbol.lower()}-realtime.csv"  # Keep same filename pattern
 
 # Define the column names
 columns = [
@@ -29,108 +29,130 @@ columns = [
     "NumberOfTrades"
 ]
 
-# Function to fetch historical data from Bybit
 def fetch_historical_data():
     # Clear the file contents before writing
     open(csv_filename, 'w').close()
 
-    base_url = "https://api.bybit.com/v5/market/kline"
-
-    # Set the current time in milliseconds
-    end_time = int(time.time())
-
+    base_url = "https://api.bybit.com/spot/quote/v1/kline"
     params = {
-        "category": "spot",
         "symbol": symbol,
         "interval": interval,
-        "end": end_time,
         "limit": 1000
     }
-
     response = requests.get(base_url, params=params)
-    data = response.json()
 
-    # Check for API errors
-    if "result" not in data or "list" not in data["result"]:
+    # Debugging prints:
+    print("HTTP GET:", response.url)
+    print("Response status code:", response.status_code)
+    print("Response text:", response.text[:500])  # Print first 500 chars for brevity
+
+    # Try parsing
+    try:
+        data = json5.loads(response.text)
+    except ValueError as e:
+        print("Error parsing JSON5:", e)
+        return
+
+    if data.get("ret_code", None) != 0:
         print(f"Error fetching historical data: {data}")
         return
 
-    # Extract kline data
-    klines = data["result"]["list"]
+    klines = data.get("result", [])
+    if not isinstance(klines, list):
+        print("Unexpected data format for klines:", klines)
+        return
 
-    # Convert to a DataFrame
-    df = pd.DataFrame(klines, columns=[
-        "Timestamp", "Open", "High", "Low", "Close", "Volume", "QuoteAssetVolume"
-    ])
+    # Convert to DataFrame
+    df = pd.DataFrame(klines, columns=["Timestamp", "Open", "High", "Low", "Close", "Volume"])
 
-    # Convert Timestamp from milliseconds to seconds
-    df["Timestamp"] = df["Timestamp"].astype(int) // 1000
-    df["Timestamp"] = df["Timestamp"].astype(int)
-
-    # Add placeholder columns for missing data
+    # Add missing columns with zeros
+    df["QuoteAssetVolume"] = 0.0
     df["TakerBuyBaseVolume"] = 0.0
     df["TakerBuyQuoteVolume"] = 0.0
     df["NumberOfTrades"] = 0
 
-    # Save to CSV with the custom separator and no header
-    df = df[columns]
+    # Convert data types
+    float_cols = ["Open", "High", "Low", "Close", "Volume", 
+                  "QuoteAssetVolume", "TakerBuyBaseVolume", "TakerBuyQuoteVolume"]
+    for col in float_cols:
+        df[col] = df[col].astype(float)
+    df["NumberOfTrades"] = df["NumberOfTrades"].astype(int)
+    df["Timestamp"] = df["Timestamp"].astype(int)
+
+    # Save to CSV
     df.to_csv(csv_filename, sep='|', index=False, header=False)
     print(f"Saved historical data to {csv_filename} with | as the separator, no header")
 
-# Callback function for when a message is received
+
+last_candle_time = None
+
 def on_message(ws, message):
-    data = json.loads(message)
-    if "data" in data:
-        kline = data["data"]
-        timestamp = int(kline['t']) // 1000  # Convert to seconds
-        open_price = float(kline['o'])
-        high_price = float(kline['h'])
-        low_price = float(kline['l'])
-        close_price = float(kline['c'])
-        volume = float(kline['v'])
-        quote_asset_volume = float(kline['q'])
-        
-        # Placeholder for unused columns
-        taker_buy_base_volume = 0.0
-        taker_buy_quote_volume = 0.0
-        number_of_trades = 0
+    global last_candle_time
+    msg = json5.loads(message)
 
-        # Read the existing data from the CSV with column names
-        df = pd.read_csv(csv_filename, sep='|', header=None, names=columns, engine='python')
+    topic = msg.get("topic", "")
+    if topic != "kline":
+        return
 
-        # Remove the oldest line if DataFrame has data
-        if len(df) > 0:
-            df = df.iloc[1:]
+    data = msg.get("data", {})
+    kline_data = data.get("kline", [])
 
-        # Append the new data
-        new_data = pd.DataFrame([[
-            timestamp, open_price, high_price, low_price, close_price, volume,
-            quote_asset_volume, taker_buy_base_volume, taker_buy_quote_volume,
-            number_of_trades
-        ]], columns=columns)
+    for candle in kline_data:
+        # candle: [open_time, open, high, low, close, volume]
+        timestamp = int(candle[0])  # already in seconds
+        open_price = float(candle[1])
+        high_price = float(candle[2])
+        low_price = float(candle[3])
+        close_price = float(candle[4])
+        volume = float(candle[5])
 
-        df = pd.concat([df, new_data], ignore_index=True)
-        df.to_csv(csv_filename, sep='|', index=False, header=False)
+        # Check if this is a new candle by comparing timestamp
+        if last_candle_time is None or timestamp > last_candle_time:
+            # Read the existing data
+            if Path(csv_filename).exists():
+                df = pd.read_csv(csv_filename, sep='|', header=None, names=columns, engine='python')
+            else:
+                df = pd.DataFrame(columns=columns)
 
-        print(f"Appended data - Timestamp: {timestamp}, O: {open_price}, C: {close_price}")
+            # Remove oldest line if present
+            if len(df) > 0:
+                df = df.iloc[1:]
 
-# Callback function for when the connection is opened
+            # Create new data row
+            new_data = pd.DataFrame([[
+                timestamp, open_price, high_price, low_price, close_price, volume,
+                0.0, 0.0, 0.0, 0
+            ]], columns=columns)
+
+            df = pd.concat([df, new_data], ignore_index=True)
+            df.to_csv(csv_filename, sep='|', index=False, header=False)
+
+            print(f"Appended data - Timestamp: {timestamp}, O: {open_price}, H: {high_price}, L: {low_price}, C: {close_price}, V: {volume}")
+            last_candle_time = timestamp
+        else:
+            # If it's the same candle (delta update), we update the last entry
+            df = pd.read_csv(csv_filename, sep='|', header=None, names=columns, engine='python')
+            if len(df) > 0:
+                df.iloc[-1] = [
+                    timestamp, open_price, high_price, low_price, close_price, volume,
+                    0.0, 0.0, 0.0, 0
+                ]
+                df.to_csv(csv_filename, sep='|', index=False, header=False)
+                print(f"Updated current candle - Timestamp: {timestamp}, O: {open_price}, H: {high_price}, L: {low_price}, C: {close_price}, V: {volume}")
+
 def on_open(ws):
     print("WebSocket connection opened")
-    subscribe_message = {
-        "op": "subscribe",
-        "args": [f"kline.{interval}.{symbol}"]
+    # Subscribe to kline topic
+    sub_msg = {
+        "topic": "kline",
+        "event": "sub",
+        "params": {
+            "symbol": symbol,
+            "interval": interval
+        }
     }
-    ws.send(json.dumps(subscribe_message))
-    print("Subscribed to kline data")
+    ws.send(json5.dumps(sub_msg))
 
-    # Start a timer to close the websocket after 10 minutes
-    def close_ws():
-        print("Closing WebSocket connection after 10 minutes")
-        ws.close()
-    threading.Timer(600, close_ws).start()
-
-# Callback function for when the connection is closed
 def on_close(ws, close_status_code, close_msg):
     print("WebSocket connection closed")
 
