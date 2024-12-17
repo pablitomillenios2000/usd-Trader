@@ -16,7 +16,7 @@ function setTitleWithPairName() {
 function plotData() {
     // Variables to skip loading certain files
     const loadEMA = true;       // Set to false to skip loading expma.txt
-    const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
+    const loadEMAMicro = true; // Set to false to skip loading expma_micro.txt
     const loadAsset = false;    // Set to false to skip loading asset.txt
 
     // Set the slope display interval

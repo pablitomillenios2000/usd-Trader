@@ -29,33 +29,44 @@ columns = [
     "NumberOfTrades"
 ]
 
-# Function to fetch historical data from Binance
 def fetch_historical_data():
     # Clear the file contents before writing
     open(csv_filename, 'w').close()
 
     base_url = "https://api.binance.com/api/v3/klines"
+    limit_per_call = 1000
+    total_points = 3000
+    calls = total_points // limit_per_call  # 3 calls of 1000 points each
 
-    # Set the end time to the current time in milliseconds
+    # Set the initial end time to the current time in milliseconds
     end_time = int(time.time() * 1000)
 
-    # Request the most recent 1,000 data points
-    params = {
-        "symbol": symbol.upper(),
-        "interval": interval,
-        "endTime": end_time,
-        "limit": 1000
-    }
-    response = requests.get(base_url, params=params)
-    data = response.json()
+    all_data = []
 
-    # Check for API errors
-    if not isinstance(data, list):
-        print(f"Error fetching historical data: {data}")
-        return
+    for i in range(calls):
+        params = {
+            "symbol": symbol.upper(),
+            "interval": interval,
+            "endTime": end_time,
+            "limit": limit_per_call
+        }
+        response = requests.get(base_url, params=params)
+        data = response.json()
 
-    # Convert to a DataFrame
-    df = pd.DataFrame(data, columns=[
+        # Check for API errors
+        if not isinstance(data, list):
+            print(f"Error fetching historical data: {data}")
+            return
+
+        # Append this batch of data
+        all_data.extend(data)
+
+        # Update end_time for the next iteration
+        oldest_open_time = data[0][0]
+        end_time = oldest_open_time - 1
+
+    # all_data should now contain approximately 3000 data points
+    df = pd.DataFrame(all_data, columns=[
         "Timestamp", "Open", "High", "Low", "Close", "Volume", "CloseTime",
         "QuoteAssetVolume", "NumberOfTrades", "TakerBuyBaseVolume",
         "TakerBuyQuoteVolume", "Ignore"
@@ -76,9 +87,19 @@ def fetch_historical_data():
 
     df["NumberOfTrades"] = df["NumberOfTrades"].astype(int)
 
+    # Sort the DataFrame by Timestamp ascending
+    df = df.sort_values("Timestamp").reset_index(drop=True)
+
+    # Remove duplicates if any overlap happened
+    df = df.drop_duplicates(subset="Timestamp")
+
+    # If there's more than 3000 rows, truncate to the last 3000
+    if len(df) > total_points:
+        df = df.iloc[-total_points:]
+
     # Save to CSV with the custom separator and no header
     df.to_csv(csv_filename, sep='|', index=False, header=False)
-    print(f"Saved historical data to {csv_filename} with | as the separator, no header")
+    print(f"Saved approximately {len(df)} historical data points to {csv_filename} with | as the separator, no header")
 
 # Callback function for when a message is received
 def on_message(ws, message):
@@ -105,7 +126,7 @@ def on_message(ws, message):
         if len(df) > 0:
             df = df.iloc[1:]
 
-        # Create a new DataFrame for the new data line with specified columns
+        # Create a new DataFrame for the new data line
         new_data = pd.DataFrame([[
             timestamp, open_price, high_price, low_price, close_price, volume,
             quote_asset_volume, taker_buy_base_volume, taker_buy_quote_volume,
