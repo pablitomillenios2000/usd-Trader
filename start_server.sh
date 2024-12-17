@@ -57,5 +57,10 @@ nohup ./bucle.py > ../start_protocol/bucle.log 2>&1 &
 
 echo ""
 
+echo "Waiting 10 seconds"
+sleep 10
+
+python3 ./recompute.py
+
 
 
