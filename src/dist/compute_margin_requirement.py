@@ -2,7 +2,7 @@ import json5
 import os
 
 # Define file paths
-api_key_file = "apikey-binance.json"
+api_key_file = "apikey-crypto.json"
 MARGIN_FILE = "../view/output/margin.txt"
 ASSET_FILE = "../view/output/asset.txt"
 TRADES_FILE = "../view/output/trades.txt"

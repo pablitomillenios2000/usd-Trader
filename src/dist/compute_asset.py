@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from tqdm import tqdm
 
 # Define paths
-config_file = "apikey-binance.json"
+config_file = "apikey-crypto.json"
 output_file = "../view/output/asset.txt"
 
 # Ensure the output directory exists

@@ -4,7 +4,7 @@ clear
 echo ""
 
 # File containing the JSON data
-CONFIG_FILE="./src/dist/apikey-binance.json"
+CONFIG_FILE="./src/dist/apikey-crypto.json"
 
 # Convert JSON5 to JSON by stripping comments and extra commas
 JSON=$(sed '/^[[:space:]]*\/\//d; s/[[:space:]]*\/\/.*$//; /^[[:space:]]*$/d' "$CONFIG_FILE" | sed ':a;N;$!ba;s/,\n[[:space:]]*}/}/g')

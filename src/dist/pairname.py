@@ -2,7 +2,7 @@ import os
 import json5
 
 # File paths
-json_file = "apikey-binance.json"
+json_file = "apikey-crypto.json"
 ASSET_FILE = "../view/output/pairname.txt"
 
 try:

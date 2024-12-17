@@ -2,12 +2,12 @@ import websocket
 import json5
 from pathlib import Path
 
-# Load the trading pair from apikey-binance.json
+# Load the trading pair from apikey-crypto.json
 home_dir = Path.home()
-with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-binance.json", "r") as file:
+with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-crypto.json", "r") as file:
     config = json5.load(file)
     if "pair" not in config:
-        raise ValueError("The 'pair' key is missing in apikey-binance.json")
+        raise ValueError("The 'pair' key is missing in apikey-crypto.json")
     symbol = config["pair"].lower()  # Convert to lowercase for Binance's WebSocket API
 
 # Define the WebSocket URL for Binance's real-time kline data

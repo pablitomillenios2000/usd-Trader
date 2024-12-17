@@ -4,7 +4,7 @@ from collections import deque
 from datetime import datetime, timedelta
 
 # Define file paths 
-api_key_file = "apikey-binance.json"
+api_key_file = "apikey-crypto.json"
 asset_file = "../view/output/asset.txt"
 trades_file = "../view/output/trades.txt"
 slope_file = "../view/output/ema_slopes.txt"

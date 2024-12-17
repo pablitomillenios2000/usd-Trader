@@ -1,3 +1,3 @@
 clear
-cat ./src/dist/apikey-binance.json
+cat ./src/dist/apikey-crypto.json
 echo ""

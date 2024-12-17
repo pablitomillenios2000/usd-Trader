@@ -3,7 +3,7 @@ import json5
 import pandas as pd
 
 # Paths
-config_file = "apikey-binance.json"
+config_file = "apikey-crypto.json"
 asset_file = "../view/output/asset.txt"
 ema_file = "../view/output/expma.txt"
 slope_file = "../view/output/ema_slopes.txt"

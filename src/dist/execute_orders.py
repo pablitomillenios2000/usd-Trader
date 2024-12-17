@@ -1,7 +1,7 @@
 import os
 import json5
 
-API_KEY_FILE = "apikey-binance.json"
+API_KEY_FILE = "apikey-crypto.json"
 
 # Load the JSON file
 with open(API_KEY_FILE, 'r') as file:

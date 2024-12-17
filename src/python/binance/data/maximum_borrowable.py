@@ -5,10 +5,10 @@ import requests
 import json5
 from urllib.parse import urlencode
 
-with open("../../../dist/apikey-binance.json", "r") as file:
+with open("../../../dist/apikey-crypto.json", "r") as file:
     config = json5.load(file)
     if "pair" not in config:
-        raise ValueError("The 'pair' key is missing in apikey-binance.json")
+        raise ValueError("The 'pair' key is missing in apikey-crypto.json")
     key = config["key"]
     secret = config["secret"] # Convert to lowercase for Binance's WebSocket API
 

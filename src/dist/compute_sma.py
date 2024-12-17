@@ -2,7 +2,7 @@ import os
 import pandas as pd
 
 # Paths
-config_file = "apikey-binance.json"
+config_file = "apikey-crypto.json"
 asset_file = "../view/output/asset.txt"
 sma_file = "../view/output/simple_ma.txt"
 slope_file = "../view/output/simple_ma_slope.txt"
