@@ -10,7 +10,7 @@
     "sl_percentage": 1.5,
     "input_file": "../assets/LUNABUSD.csv", //for recompute
     //bull run started on November 29th, 2024 for good alt-coins
-    "start_date": "2021-02-26", //"1900-01-01", //"2021-01-01", 
+    "start_date": "2022-02-01", //"1900-01-01", //"2021-01-01", 
     "end_date": "2022-05-15", //"2040-01-01", //"2021-08-20",
     "ema_days": 1800,
     "ema_days_micro": 200,
