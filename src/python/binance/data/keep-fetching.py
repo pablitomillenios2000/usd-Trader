@@ -1,54 +1,104 @@
 #!/usr/bin/env python3
 
+import argparse
+import math
+import time
 from pathlib import Path
-import websocket
+
 import json5
 import requests
 import pandas as pd
-import time
-import threading
+import websocket
+from tqdm import tqdm  # for progress bar
 
+# ----------------------------------------------------------------------------
+# Configuration
+# ----------------------------------------------------------------------------
+
+# 1-minute interval
+INTERVAL = "1m"
+# Number of days of historical data to fetch
+DAYS_OF_DATA = 18
+# Limit per Binance klines API call
+LIMIT_PER_CALL = 1000
+
+# ----------------------------------------------------------------------------
+# Define CSV columns
+# ----------------------------------------------------------------------------
+
+COLUMNS = [
+    "Timestamp", "Open", "High", "Low", "Close", "Volume",
+    "QuoteAssetVolume", "TakerBuyBaseVolume", "TakerBuyQuoteVolume",
+    "NumberOfTrades"
+]
+
+# ----------------------------------------------------------------------------
+# Parse command-line arguments
+# ----------------------------------------------------------------------------
+
+parser = argparse.ArgumentParser(
+    description="Fetch historical Binance klines for a given trading pair, then optionally open a WebSocket to continuously append real-time data."
+)
+parser.add_argument("--once", action="store_true",
+                    help="If specified, only fetch historical data and exit. No WebSocket streaming.")
+args = parser.parse_args()
+
+# ----------------------------------------------------------------------------
 # Load the trading pair from apikey-crypto.json
-home_dir = Path.home()
+# ----------------------------------------------------------------------------
 
+home_dir = Path.home()
 with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-crypto.json", "r") as file:
     config = json5.load(file)
     if "pair" not in config:
         raise ValueError("The 'pair' key is missing in apikey-crypto.json")
     symbol = config["pair"].lower()  # Convert to lowercase for Binance's WebSocket API
 
-# Define the parameters
-interval = "1m"
-ws_url = f"wss://stream.binance.com:9443/ws/{symbol}@kline_{interval}"
-csv_filename = f"../../../assets/{symbol}-realtime.csv"  # Dynamically generate the output path
+# ----------------------------------------------------------------------------
+# Paths and URLs
+# ----------------------------------------------------------------------------
 
-# Define the column names
-columns = [
-    "Timestamp", "Open", "High", "Low", "Close", "Volume",
-    "QuoteAssetVolume", "TakerBuyBaseVolume", "TakerBuyQuoteVolume",
-    "NumberOfTrades"
-]
+WS_URL = f"wss://stream.binance.com:9443/ws/{symbol}@kline_{INTERVAL}"
+CSV_FILENAME = f"../../../assets/{symbol}-realtime.csv"
+
+# ----------------------------------------------------------------------------
+# Historical Data Fetch Function
+# ----------------------------------------------------------------------------
 
 def fetch_historical_data():
+    """
+    Fetch ~18 days of 1m historical data from Binance (~25,920 data points).
+    Downloads data in 1,000-point chunks until we reach the required total.
+    Clears the CSV file before writing newly fetched data.
+    """
     # Clear the file contents before writing
-    open(csv_filename, 'w').close()
+    open(CSV_FILENAME, 'w').close()
 
     base_url = "https://api.binance.com/api/v3/klines"
-    limit_per_call = 1000
-    total_points = 3000
-    calls = total_points // limit_per_call  # 3 calls of 1000 points each
 
-    # Set the initial end time to the current time in milliseconds
+    # Calculate total points needed for the specified DAYS_OF_DATA
+    total_points = DAYS_OF_DATA * 24 * 60  # 18 * 24 * 60 = 25,920
+
+    # Figure out how many calls we need to make (each call can return up to LIMIT_PER_CALL klines)
+    calls = math.ceil(total_points / LIMIT_PER_CALL)
+
+    # Set the initial end time to 'now' in milliseconds
     end_time = int(time.time() * 1000)
 
     all_data = []
 
-    for i in range(calls):
+    # Create a lightgreen progress bar using 'bar_format' or 'color'
+    # \x1b[92m is a light-green color escape code
+    progress_bar_format = "\x1b[92m{l_bar}{bar}\x1b[0m"
+
+    print(f"Downloading ~{total_points} klines ({DAYS_OF_DATA} days).")
+
+    for i in tqdm(range(calls), desc="Downloading klines", bar_format=progress_bar_format):
         params = {
             "symbol": symbol.upper(),
-            "interval": interval,
+            "interval": INTERVAL,
             "endTime": end_time,
-            "limit": limit_per_call
+            "limit": LIMIT_PER_CALL
         }
         response = requests.get(base_url, params=params)
         data = response.json()
@@ -61,11 +111,11 @@ def fetch_historical_data():
         # Append this batch of data
         all_data.extend(data)
 
-        # Update end_time for the next iteration
+        # Update end_time for the next iteration to the oldest openTime in this batch - 1 ms
         oldest_open_time = data[0][0]
         end_time = oldest_open_time - 1
 
-    # all_data should now contain approximately 3000 data points
+    # Convert the fetched data into a DataFrame
     df = pd.DataFrame(all_data, columns=[
         "Timestamp", "Open", "High", "Low", "Close", "Volume", "CloseTime",
         "QuoteAssetVolume", "NumberOfTrades", "TakerBuyBaseVolume",
@@ -73,18 +123,23 @@ def fetch_historical_data():
     ])
 
     # Keep only relevant columns
-    df = df[columns]
+    df = df[[
+        "Timestamp", "Open", "High", "Low", "Close", "Volume",
+        "QuoteAssetVolume", "TakerBuyBaseVolume", "TakerBuyQuoteVolume",
+        "NumberOfTrades"
+    ]]
 
     # Convert Timestamp from milliseconds to seconds
     df["Timestamp"] = df["Timestamp"] // 1000
     df["Timestamp"] = df["Timestamp"].astype(int)
 
-    # Convert data types
-    float_cols = ["Open", "High", "Low", "Close", "Volume", "QuoteAssetVolume",
-                  "TakerBuyBaseVolume", "TakerBuyQuoteVolume"]
+    # Convert numeric columns
+    float_cols = [
+        "Open", "High", "Low", "Close", "Volume",
+        "QuoteAssetVolume", "TakerBuyBaseVolume", "TakerBuyQuoteVolume"
+    ]
     for col in float_cols:
         df[col] = df[col].astype(float)
-
     df["NumberOfTrades"] = df["NumberOfTrades"].astype(int)
 
     # Sort the DataFrame by Timestamp ascending
@@ -93,21 +148,24 @@ def fetch_historical_data():
     # Remove duplicates if any overlap happened
     df = df.drop_duplicates(subset="Timestamp")
 
-    # If there's more than 3000 rows, truncate to the last 3000
+    # If there's more than total_points rows, truncate to the last total_points
     if len(df) > total_points:
         df = df.iloc[-total_points:]
 
-    # Save to CSV with the custom separator and no header
-    df.to_csv(csv_filename, sep='|', index=False, header=False)
-    print(f"Saved approximately {len(df)} historical data points to {csv_filename} with | as the separator, no header")
+    # Save to CSV with '|' as the separator and no header
+    df.to_csv(CSV_FILENAME, sep='|', index=False, header=False)
+    print(f"Saved {len(df)} historical data points (up to {DAYS_OF_DATA} days) to {CSV_FILENAME} "
+          f"with '|' as the separator, no header.")
 
-# Callback function for when a message is received
+# ----------------------------------------------------------------------------
+# WebSocket Callbacks
+# ----------------------------------------------------------------------------
+
 def on_message(ws, message):
     data = json5.loads(message)
     kline = data['k']
     is_kline_closed = kline['x']
     if is_kline_closed:
-        # Extract relevant data and convert data types
         timestamp = int(kline['t'] // 1000)  # Convert to seconds
         open_price = float(kline['o'])
         high_price = float(kline['h'])
@@ -119,43 +177,59 @@ def on_message(ws, message):
         taker_buy_quote_volume = float(kline['Q'])
         number_of_trades = int(kline['n'])
 
-        # Read the existing data from the CSV with column names
-        df = pd.read_csv(csv_filename, sep='|', header=None, names=columns, engine='python')
+        # Read the existing data from the CSV (with column names for convenience)
+        df = pd.read_csv(CSV_FILENAME, sep='|', header=None, names=COLUMNS, engine='python')
 
-        # Remove the oldest line (first row) if DataFrame has more than 0 rows
+        # If you want to maintain a rolling window, remove the first row:
         if len(df) > 0:
             df = df.iloc[1:]
 
-        # Create a new DataFrame for the new data line
+        # Create a new DataFrame row for the new data
         new_data = pd.DataFrame([[
             timestamp, open_price, high_price, low_price, close_price, volume,
             quote_asset_volume, taker_buy_base_volume, taker_buy_quote_volume,
             number_of_trades
-        ]], columns=columns)
+        ]], columns=COLUMNS)
 
-        # Append the new data line
+        # Append the new data
         df = pd.concat([df, new_data], ignore_index=True)
 
         # Save back to the CSV file
-        df.to_csv(csv_filename, sep='|', index=False, header=False)
+        df.to_csv(CSV_FILENAME, sep='|', index=False, header=False)
 
-        print(f"Appended data - Timestamp: {timestamp}, O: {open_price}, H: {high_price}, L: {low_price}, C: {close_price}, V: {volume}, QAV: {quote_asset_volume}, TBBAV: {taker_buy_base_volume}, TBQAV: {taker_buy_quote_volume}, NoT: {number_of_trades}")
+        print(f"Appended data - Timestamp: {timestamp}, "
+              f"O: {open_price}, H: {high_price}, L: {low_price}, C: {close_price}, "
+              f"V: {volume}, QAV: {quote_asset_volume}, "
+              f"TBBAV: {taker_buy_base_volume}, TBQAV: {taker_buy_quote_volume}, "
+              f"NoT: {number_of_trades}")
 
-# Callback function for when the connection is opened
 def on_open(ws):
-    print("WebSocket connection opened")
-    # No timer to close the connection; it stays open indefinitely
+    print("WebSocket connection opened. Listening for new klines...")
 
-# Callback function for when the connection is closed
 def on_close(ws, close_status_code, close_msg):
     print("WebSocket connection closed")
 
-# Fetch historical data first
-fetch_historical_data()
+# ----------------------------------------------------------------------------
+# Main Execution
+# ----------------------------------------------------------------------------
 
-while True:
-    # Create a WebSocket connection
-    ws = websocket.WebSocketApp(ws_url, on_message=on_message, on_open=on_open, on_close=on_close)
-    ws.run_forever()
-    # Wait a bit before restarting to prevent tight loop in case of errors
-    time.sleep(1)
+if __name__ == "__main__":
+    # Fetch the historical data first
+    fetch_historical_data()
+
+    # If --once is specified, then exit after fetching data
+    if args.once:
+        print("Finished fetching historical data. Exiting (because --once is set).")
+        exit(0)
+
+    # Otherwise, start the WebSocket to keep appending new 1m klines
+    while True:
+        ws = websocket.WebSocketApp(
+            WS_URL,
+            on_message=on_message,
+            on_open=on_open,
+            on_close=on_close
+        )
+        ws.run_forever()
+        # Sleep 1 second before attempting a reconnect if the socket closes
+        time.sleep(1)
