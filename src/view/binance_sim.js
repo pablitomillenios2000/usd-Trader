@@ -60,7 +60,7 @@ function plotData() {
     const valuesMargin = [];
 
     let tradesLineCount = 0; // Track the number of lines in the trades file
-    let skipTrades = false; // Flag to skip processing trades if line count exceeds 3000
+    let skipTrades = true; // Flag to skip processing trades if line count exceeds 3000
     let showTrades = true;  // Will be set to false if more than 1000 total trades
 
     let datasetsLoaded = {
