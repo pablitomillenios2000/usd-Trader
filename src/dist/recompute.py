@@ -7,7 +7,8 @@ import os
 start_time = time.time()
 
 # Remove all .txt files
-os.system("rm ../view/output/*.txt")
+# os.system("rm ../view/output/*.txt")
+# dont do this because you need the last_timestamp.txt
 
 # Execute the commands
 os.system("python3 ./pairname.py")
