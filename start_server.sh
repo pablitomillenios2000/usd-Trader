@@ -42,7 +42,9 @@ fi
 echo ""
 echo "starting the permanent data fetcher"
 rm ./src/start_protocol/keep_fetching.log
-cd "src/python/${EXCHANGE}/data/"
+cd "src/python/binance/data/"
+#cd "src/python/${EXCHANGE}/data/"
+
 ./keep-fetching.py > ../../../start_protocol/keep_fetching.log & disown $!
 cd ../../../../
 
