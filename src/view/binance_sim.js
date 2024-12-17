@@ -16,8 +16,8 @@ function setTitleWithPairName() {
 function plotData() {
     // Variables to skip loading certain files
     const loadEMA = true;       // Set to false to skip loading expma.txt
-    const loadEMAMicro = true; // Set to false to skip loading expma_micro.txt
-    const loadAsset = false;    // Set to false to skip loading asset.txt
+    const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
+    const loadAsset = true;     // Set to false to skip loading asset.txt
 
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
@@ -90,7 +90,7 @@ function plotData() {
     function createChart() {
         const traces = [];
 
-        // Only add the asset trace if asset was loaded
+        // Only add the asset trace if asset was loaded and data is present
         if (loadAsset && timestampsAsset.length > 0) {
             const assetTrace = {
                 x: timestampsAsset.map(ts => new Date(ts * 1000)),
@@ -458,6 +458,32 @@ function plotData() {
                 console.error('Error parsing EMA slopes data file:', error);
             },
         });
+    }
+
+    // Parse asset data if enabled
+    if (loadAsset) {
+        Papa.parse('./output/asset.txt', {
+            download: true,
+            delimiter: ',',
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            step: function (row) {
+                const [timestamp, value] = row.data;
+                if (typeof timestamp === 'number' && value !== undefined) {
+                    timestampsAsset.push(timestamp);
+                    valuesAsset.push(value);
+                }
+            },
+            complete: function () {
+                datasetsLoaded.asset = true;
+                checkIfReadyToCreateChart();
+            },
+            error: function (error) {
+                console.error('Error parsing asset data file:', error);
+            },
+        });
+    } else {
+        datasetsLoaded.asset = true;
     }
 
     // Parse margin if enabled
