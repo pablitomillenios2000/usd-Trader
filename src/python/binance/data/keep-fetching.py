@@ -4,7 +4,7 @@ import argparse
 import math
 import time
 from pathlib import Path
-
+from datetime import date
 import json5
 import requests
 import pandas as pd
@@ -17,7 +17,7 @@ from tqdm import tqdm  # for progress bar
 
 # 1-minute interval
 INTERVAL = "1m"
-# Number of days of historical data to fetch
+# Number of days of historical data to fetch (default 18)
 DAYS_OF_DATA = 18
 # Limit per Binance klines API call
 LIMIT_PER_CALL = 1000
@@ -40,7 +40,7 @@ parser = argparse.ArgumentParser(
     description="Fetch historical Binance klines for a given trading pair, then optionally open a WebSocket to continuously append real-time data."
 )
 parser.add_argument("--once", action="store_true",
-                    help="If specified, only fetch historical data and exit. No WebSocket streaming.")
+                    help="If specified, only fetch historical data (Nov 29, 2024 to today) and exit. No WebSocket streaming.")
 args = parser.parse_args()
 
 # ----------------------------------------------------------------------------
@@ -65,9 +65,9 @@ CSV_FILENAME = f"../../../assets/{symbol}-realtime.csv"
 # Historical Data Fetch Function
 # ----------------------------------------------------------------------------
 
-def fetch_historical_data():
+def fetch_historical_data(num_days):
     """
-    Fetch ~18 days of 1m historical data from Binance (~25,920 data points).
+    Fetch num_days of 1m historical data from Binance.
     Downloads data in 1,000-point chunks until we reach the required total.
     Clears the CSV file before writing newly fetched data.
     """
@@ -76,10 +76,10 @@ def fetch_historical_data():
 
     base_url = "https://api.binance.com/api/v3/klines"
 
-    # Calculate total points needed for the specified DAYS_OF_DATA
-    total_points = DAYS_OF_DATA * 24 * 60  # 18 * 24 * 60 = 25,920
+    # Calculate total points needed for the specified num_days
+    total_points = num_days * 24 * 60  # minutes in a day
 
-    # Figure out how many calls we need to make (each call can return up to LIMIT_PER_CALL klines)
+    # Figure out how many calls we need (each call can return up to LIMIT_PER_CALL klines)
     calls = math.ceil(total_points / LIMIT_PER_CALL)
 
     # Set the initial end time to 'now' in milliseconds
@@ -87,13 +87,10 @@ def fetch_historical_data():
 
     all_data = []
 
-    # Create a lightgreen progress bar using 'bar_format' or 'color'
-    # \x1b[92m is a light-green color escape code
     progress_bar_format = "\x1b[92m{l_bar}{bar}\x1b[0m"
+    print(f"Downloading ~{total_points} klines ({num_days} days).")
 
-    print(f"Downloading ~{total_points} klines ({DAYS_OF_DATA} days).")
-
-    for i in tqdm(range(calls), desc="Downloading klines", bar_format=progress_bar_format):
+    for _ in tqdm(range(calls), desc="Downloading klines", bar_format=progress_bar_format):
         params = {
             "symbol": symbol.upper(),
             "interval": INTERVAL,
@@ -145,7 +142,7 @@ def fetch_historical_data():
     # Sort the DataFrame by Timestamp ascending
     df = df.sort_values("Timestamp").reset_index(drop=True)
 
-    # Remove duplicates if any overlap happened
+    # Remove duplicates if any overlap
     df = df.drop_duplicates(subset="Timestamp")
 
     # If there's more than total_points rows, truncate to the last total_points
@@ -154,7 +151,7 @@ def fetch_historical_data():
 
     # Save to CSV with '|' as the separator and no header
     df.to_csv(CSV_FILENAME, sep='|', index=False, header=False)
-    print(f"Saved {len(df)} historical data points (up to {DAYS_OF_DATA} days) to {CSV_FILENAME} "
+    print(f"Saved {len(df)} historical data points ({num_days} days) to {CSV_FILENAME} "
           f"with '|' as the separator, no header.")
 
 # ----------------------------------------------------------------------------
@@ -214,8 +211,23 @@ def on_close(ws, close_status_code, close_msg):
 # ----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Fetch the historical data first
-    fetch_historical_data()
+    # Default is 18 days
+    days_to_fetch = DAYS_OF_DATA
+
+    # If --once is specified, compute days from Nov 29, 2024 to today
+    if args.once:
+        nov_29_2024 = date(2024, 11, 29)
+        today = date.today()
+        diff_days = (today - nov_29_2024).days
+        # If diff_days is negative (running before Nov 29, 2024), just use 1 day fallback
+        if diff_days < 1:
+            diff_days = 1
+        
+        days_to_fetch = diff_days
+        print(f"Running with --once. Fetching ~{days_to_fetch} days of data from Nov 29, 2024 to today.")
+
+    # Fetch historical data
+    fetch_historical_data(days_to_fetch)
 
     # If --once is specified, then exit after fetching data
     if args.once:
