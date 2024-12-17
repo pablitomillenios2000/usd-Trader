@@ -8,3 +8,4 @@ pip install python-binance
 pip install binance
 pip install pandas tqdm 
 pip install pybit
+pip install json5
