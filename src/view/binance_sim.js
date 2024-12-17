@@ -6,7 +6,6 @@ function setTitleWithPairName() {
         .then(pairName => {
             const trimmedPairName = pairName.trim();
             if (trimmedPairName) {
-                // Update the browser tab title
                 document.title = `SIMULATION - ${trimmedPairName} Data Chart`;
                 titleContents = `SIMULATION - ${trimmedPairName} Data Chart`;
             }
@@ -23,13 +22,13 @@ function plotData() {
     // Set the slope display interval
     const slopeDisplayInterval = 5; // Change this value as needed
 
-    // Variable to control logarithmic scale
-    const logarithmic = true; // Set to true to use logarithmic scale for portfolio value
+    // Variable to control logarithmic scale for portfolio value
+    const logarithmic = true; // Set to true for log scale
 
-    // Variable to toggle the display of the margin data
-    const showMargin = false; // Set to true to display the margin data
+    // Variable to toggle display of margin data
+    const showMargin = false; // Set to true to display margin data
 
-    // Define arrays to hold the data
+    // Arrays for data (raw timestamps as integers)
     const timestampsAsset = [];
     const valuesAsset = [];
 
@@ -48,20 +47,22 @@ function plotData() {
     const timestampsSlopes = [];
     const slopes = [];
 
-    const buyTimestamps = [];
-    const buyValues = [];
-    const buyReasons = []; // Reasons for buy trades
-
-    const sellTimestamps = [];
-    const sellValues = [];
-    const sellReasons = []; // Reasons for sell trades
-
     const timestampsMargin = [];
     const valuesMargin = [];
 
-    let tradesLineCount = 0; // Track the number of lines in the trades file
-    let skipTrades = true; // Flag to skip processing trades if line count exceeds 3000
-    let showTrades = true;  // Will be set to false if more than 1000 total trades
+    // Arrays for trades (store them first, match later)
+    let rawTrades = [];  // Will store {timestamp, action, reason} objects
+
+    // Final arrays for plotting trades once matched
+    const buyTimestamps = [];
+    const buyValues = [];
+    const buyReasons = [];
+
+    const sellTimestamps = [];
+    const sellValues = [];
+    const sellReasons = [];
+
+    let showTrades = true;  // Will be set to false if more than 10,000 trades
 
     let datasetsLoaded = {
         asset: !loadAsset,
@@ -74,7 +75,7 @@ function plotData() {
         margin: !showMargin,
     };
 
-    // Thresholds and their colors (lighter to darker)
+    // Thresholds and colors
     const thresholds = [
         { value: 100000, label: '100K', color: '#87CEFA' },
         { value: 1000000, label: '1M', color: '#6495ED' },
@@ -84,7 +85,7 @@ function plotData() {
 
     let shapes = [];
     let annotations = [];
-    let thresholdTraces = []; // Will store threshold cross traces
+    let thresholdTraces = [];
 
     function createChart() {
         const traces = [];
@@ -92,7 +93,7 @@ function plotData() {
         // Only add the asset trace if asset was loaded
         if (loadAsset && timestampsAsset.length > 0) {
             const assetTrace = {
-                x: timestampsAsset,
+                x: timestampsAsset.map(ts => new Date(ts * 1000)),
                 y: valuesAsset,
                 mode: 'lines',
                 type: 'scatter',
@@ -104,7 +105,7 @@ function plotData() {
 
         // Portfolio trace
         const portfolioTrace = {
-            x: timestampsPortfolio,
+            x: timestampsPortfolio.map(ts => new Date(ts * 1000)),
             y: valuesPortfolio,
             mode: 'lines',
             type: 'scatter',
@@ -116,22 +117,20 @@ function plotData() {
 
         // Untouched portfolio trace
         const untouchedPortfolioTrace = {
-            x: timestampsUntouchedPortfolio,
+            x: timestampsUntouchedPortfolio.map(ts => new Date(ts * 1000)),
             y: valuesUntouchedPortfolio,
             mode: 'lines',
             type: 'scatter',
             name: 'Untouched Portfolio Value',
             yaxis: 'y2',
-            line: {
-                color: 'darkblue'
-            }
+            line: { color: 'darkblue' }
         };
         traces.push(untouchedPortfolioTrace);
 
-        // Only add EMA traces if they were loaded
+        // EMA traces if loaded
         if (loadEMA && timestampsEMA.length > 0) {
             const emaTrace = {
-                x: timestampsEMA,
+                x: timestampsEMA.map(ts => new Date(ts * 1000)),
                 y: valuesEMA,
                 mode: 'lines',
                 type: 'scatter',
@@ -144,7 +143,7 @@ function plotData() {
 
         if (loadEMAMicro && timestampsEMAMicro.length > 0) {
             const emaMicroTrace = {
-                x: timestampsEMAMicro,
+                x: timestampsEMAMicro.map(ts => new Date(ts * 1000)),
                 y: valuesEMAMicro,
                 mode: 'lines',
                 type: 'scatter',
@@ -158,7 +157,7 @@ function plotData() {
         // Margin trace if enabled
         if (showMargin && timestampsMargin.length > 0) {
             const marginTrace = {
-                x: timestampsMargin,
+                x: timestampsMargin.map(ts => new Date(ts * 1000)),
                 y: valuesMargin,
                 mode: 'lines',
                 type: 'scatter',
@@ -169,15 +168,15 @@ function plotData() {
             traces.push(marginTrace);
         }
 
-        // Add threshold cross markers
+        // Threshold markers
         if (thresholdTraces.length > 0) {
             traces.push(...thresholdTraces);
         }
 
-        // Add trades if allowed (showTrades = true and skipTrades = false)
-        if (showTrades && !skipTrades && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
+        // Trades
+        if (showTrades && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
             const buyTrace = {
-                x: buyTimestamps,
+                x: buyTimestamps.map(ts => new Date(ts * 1000)),
                 y: buyValues,
                 mode: 'markers',
                 type: 'scatter',
@@ -186,7 +185,7 @@ function plotData() {
                 yaxis: 'y2',
             };
             const sellTrace = {
-                x: sellTimestamps,
+                x: sellTimestamps.map(ts => new Date(ts * 1000)),
                 y: sellValues,
                 mode: 'markers',
                 type: 'scatter',
@@ -196,10 +195,9 @@ function plotData() {
             };
             traces.push(buyTrace, sellTrace);
 
-            // Add annotations for buy/sell trades if you want them
-            buyTimestamps.forEach((timestamp, index) => {
+            buyTimestamps.forEach((ts, index) => {
                 annotations.push({
-                    x: timestamp,
+                    x: new Date(ts * 1000),
                     y: buyValues[index],
                     xref: 'x',
                     yref: 'y2',
@@ -209,9 +207,9 @@ function plotData() {
                     yshift: 10,
                 });
             });
-            sellTimestamps.forEach((timestamp, index) => {
+            sellTimestamps.forEach((ts, index) => {
                 annotations.push({
-                    x: timestamp,
+                    x: new Date(ts * 1000),
                     y: sellValues[index],
                     xref: 'x',
                     yref: 'y2',
@@ -254,7 +252,7 @@ function plotData() {
     function checkIfReadyToCreateChart() {
         const allLoaded = Object.values(datasetsLoaded).every((loaded) => loaded);
         if (allLoaded) {
-            // For each threshold, find the first occurrence in the portfolio where this value is reached or exceeded
+            // Threshold checks
             thresholds.forEach(threshold => {
                 let thresholdTimestamp = null;
                 let thresholdValue = threshold.value;
@@ -266,10 +264,9 @@ function plotData() {
                     }
                 }
 
-                if (thresholdTimestamp) {
-                    // Add a cross marker at the threshold point
+                if (thresholdTimestamp !== null) {
                     thresholdTraces.push({
-                        x: [thresholdTimestamp],
+                        x: [new Date(thresholdTimestamp * 1000)],
                         y: [thresholdValue],
                         mode: 'markers',
                         type: 'scatter',
@@ -286,62 +283,99 @@ function plotData() {
                 }
             });
 
+            // Now that trades and portfolio are loaded, match trades to portfolio
+            matchTradesToPortfolio();
+
             createChart();
         }
     }
 
-    // Load asset data if enabled
-    if (loadAsset) {
-        Papa.parse('./output/asset.txt', {
+    function matchTradesToPortfolio() {
+        // For each trade, find the exact matching portfolio timestamp
+        rawTrades.forEach(trade => {
+            const { timestamp, action, reason } = trade;
+            const idx = timestampsPortfolio.indexOf(timestamp);
+            if (idx !== -1) {
+                const value = valuesPortfolio[idx];
+                if (action === 'buy') {
+                    buyTimestamps.push(timestamp);
+                    buyValues.push(value);
+                    buyReasons.push(reason);
+                } else if (action === 'sell') {
+                    sellTimestamps.push(timestamp);
+                    sellValues.push(value);
+                    sellReasons.push(reason);
+                }
+            } else {
+                console.warn(`No exact match in portfolio for trade at timestamp ${timestamp}`);
+            }
+        });
+
+        const totalTrades = buyTimestamps.length + sellTimestamps.length;
+        if (totalTrades > 10000) {
+            showTrades = false;
+        }
+    }
+
+    function parseTradesData() {
+        Papa.parse('./output/trades.txt', {
             download: true,
             delimiter: ',',
             dynamicTyping: true,
-            step: function (row) {
-                const [timestamp, value] = row.data;
-                if (timestamp && value !== undefined) {
-                    timestampsAsset.push(new Date(timestamp * 1000));
-                    valuesAsset.push(value);
-                }
-            },
-            complete: function () {
-                datasetsLoaded.asset = true;
-                checkIfReadyToCreateChart();
+            skipEmptyLines: true,
+            complete: function (results) {
+                const data = results.data;
+                data.forEach(row => {
+                    if (row.length < 3) return;
+                    const [timestamp, action, reason] = row;
+
+                    if (typeof timestamp === 'number' && action && reason) {
+                        rawTrades.push({ timestamp, action, reason });
+                    }
+                });
+                datasetsLoaded.trades = true;
+                // After trades are parsed, parse the portfolio data
+                parsePortfolioData();
             },
             error: function (error) {
-                console.error('Error parsing asset data file:', error);
+                console.error('Error parsing trades file:', error);
             },
         });
     }
 
-    Papa.parse('./output/portfolio.txt', {
-        download: true,
-        delimiter: ',',
-        dynamicTyping: true,
-        step: function (row) {
-            const [timestamp, value] = row.data;
-            if (timestamp && value !== undefined) {
-                timestampsPortfolio.push(new Date(timestamp * 1000));
-                valuesPortfolio.push(value);
-            }
-        },
-        complete: function () {
-            datasetsLoaded.portfolio = true;
-            checkIfReadyToCreateChart();
-            parseTradesData();
-        },
-        error: function (error) {
-            console.error('Error parsing portfolio data file:', error);
-        },
-    });
+    function parsePortfolioData() {
+        Papa.parse('./output/portfolio.txt', {
+            download: true,
+            delimiter: ',',
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            step: function (row) {
+                const [timestamp, value] = row.data;
+                if (typeof timestamp === 'number' && value !== undefined) {
+                    timestampsPortfolio.push(timestamp);
+                    valuesPortfolio.push(value);
+                }
+            },
+            complete: function () {
+                datasetsLoaded.portfolio = true;
+                checkIfReadyToCreateChart();
+            },
+            error: function (error) {
+                console.error('Error parsing portfolio data file:', error);
+            },
+        });
+    }
 
+    // Parse untouched portfolio
     Papa.parse('./output/untouched_portfolio.txt', {
         download: true,
         delimiter: ',',
         dynamicTyping: true,
+        skipEmptyLines: true,
         step: function (row) {
             const [timestamp, value] = row.data;
-            if (timestamp && value !== undefined) {
-                timestampsUntouchedPortfolio.push(new Date(timestamp * 1000));
+            if (typeof timestamp === 'number' && value !== undefined) {
+                timestampsUntouchedPortfolio.push(timestamp);
                 valuesUntouchedPortfolio.push(value);
             }
         },
@@ -354,15 +388,17 @@ function plotData() {
         },
     });
 
+    // Parse EMA if enabled
     if (loadEMA) {
         Papa.parse('./output/expma.txt', {
             download: true,
             delimiter: ',',
             dynamicTyping: true,
+            skipEmptyLines: true,
             step: function (row) {
                 const [timestamp, value] = row.data;
-                if (timestamp && value !== undefined) {
-                    timestampsEMA.push(new Date(timestamp * 1000));
+                if (typeof timestamp === 'number' && value !== undefined) {
+                    timestampsEMA.push(timestamp);
                     valuesEMA.push(value);
                 }
             },
@@ -376,15 +412,17 @@ function plotData() {
         });
     }
 
+    // Parse EMA Micro if enabled
     if (loadEMAMicro) {
         Papa.parse('./output/expma_micro.txt', {
             download: true,
             delimiter: ',',
             dynamicTyping: true,
+            skipEmptyLines: true,
             step: function (row) {
                 const [timestamp, value] = row.data;
-                if (timestamp && value !== undefined) {
-                    timestampsEMAMicro.push(new Date(timestamp * 1000));
+                if (typeof timestamp === 'number' && value !== undefined) {
+                    timestampsEMAMicro.push(timestamp);
                     valuesEMAMicro.push(value);
                 }
             },
@@ -398,15 +436,17 @@ function plotData() {
         });
     }
 
+    // Parse EMA Slopes if enabled
     if (slopeDisplayInterval > 0) {
         Papa.parse('./output/ema_slopes.txt', {
             download: true,
             delimiter: ',',
             dynamicTyping: true,
+            skipEmptyLines: true,
             step: function (row) {
                 const [timestamp, slopeValue] = row.data;
-                if (timestamp && slopeValue !== undefined) {
-                    timestampsSlopes.push(new Date(timestamp * 1000));
+                if (typeof timestamp === 'number' && slopeValue !== undefined) {
+                    timestampsSlopes.push(timestamp);
                     slopes.push(slopeValue);
                 }
             },
@@ -420,15 +460,17 @@ function plotData() {
         });
     }
 
+    // Parse margin if enabled
     if (showMargin) {
         Papa.parse('./output/margin.txt', {
             download: true,
             delimiter: ',',
             dynamicTyping: true,
+            skipEmptyLines: true,
             step: function (row) {
                 const [timestamp, value] = row.data;
-                if (timestamp && value !== undefined) {
-                    timestampsMargin.push(new Date(timestamp * 1000));
+                if (typeof timestamp === 'number' && value !== undefined) {
+                    timestampsMargin.push(timestamp);
                     valuesMargin.push(value);
                 }
             },
@@ -442,71 +484,8 @@ function plotData() {
         });
     }
 
-    function parseTradesData() {
-        Papa.parse('./output/trades.txt', {
-            download: true,
-            delimiter: ',',
-            dynamicTyping: true,
-            step: function (row) {
-                tradesLineCount += 1;
-                if (tradesLineCount > 3000) {
-                    skipTrades = true;
-                    return;
-                }
-
-                const [timestamp, action, reason] = row.data;
-                if (timestamp && action && reason) {
-                    const date = new Date(timestamp * 1000);
-                    const portfolioIndex = timestampsPortfolio.findIndex((t) => t.getTime() === date.getTime());
-                    let value;
-                    if (portfolioIndex !== -1) {
-                        value = valuesPortfolio[portfolioIndex];
-                    } else {
-                        let closestIndex = -1;
-                        let minDiff = Infinity;
-                        timestampsPortfolio.forEach((t, idx) => {
-                            const diff = Math.abs(t - date);
-                            if (diff < minDiff) {
-                                minDiff = diff;
-                                closestIndex = idx;
-                            }
-                        });
-                        if (closestIndex !== -1) {
-                            value = valuesPortfolio[closestIndex];
-                        }
-                    }
-                    if (value !== undefined) {
-                        if (action === 'buy') {
-                            buyTimestamps.push(date);
-                            buyValues.push(value);
-                            buyReasons.push(reason);
-                        } else if (action === 'sell') {
-                            sellTimestamps.push(date);
-                            sellValues.push(value);
-                            sellReasons.push(reason);
-                        }
-                    }
-                }
-            },
-            complete: function () {
-                if (skipTrades) {
-                    console.warn('Trades file has more than 3000 lines. Skipping trades plotting.');
-                }
-                // Check total trades count
-                const totalTrades = buyTimestamps.length + sellTimestamps.length;
-                if (totalTrades > 10000) {
-                    // Suppress trades
-                    showTrades = false;
-                }
-
-                datasetsLoaded.trades = true;
-                checkIfReadyToCreateChart();
-            },
-            error: function (error) {
-                console.error('Error parsing trades file:', error);
-            },
-        });
-    }
+    // Start by parsing trades first
+    parseTradesData();
 }
 
 // Add a div for the chart in the DOM
