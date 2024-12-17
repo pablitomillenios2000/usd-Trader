@@ -306,7 +306,7 @@ function plotData() {
                 x: timestampsAsset.map(ts => new Date(ts * 1000)),
                 y: valuesAsset,
                 mode: 'lines',
-                type: 'scattergl',
+                type: 'scatter',
                 name: 'Asset Price',
                 yaxis: 'y1',
                 line: lineStyle,
@@ -318,7 +318,7 @@ function plotData() {
             x: timestampsPortfolio.map(ts => new Date(ts * 1000)),
             y: valuesPortfolio,
             mode: 'lines',
-            type: 'scattergl',
+            type: 'scatter',
             name: 'Portfolio Value',
             yaxis: 'y2',
             line: Object.assign({ color: 'orange' }, lineStyle),
@@ -455,7 +455,7 @@ function plotData() {
 
         // Higher pixel ratio for sharper lines on 4K
         const config = {
-            plotGlPixelRatio: 3  // try 2 or 3 depending on your performance needs
+            plotGlPixelRatio: 5  // try 2 or 3 depending on your performance needs
         };
 
         Plotly.newPlot('chart', traces, layout, config);
