@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import json5
 import math
@@ -10,6 +11,7 @@ from binance.exceptions import BinanceAPIException, BinanceRequestException
 script_start_time = time.time()
 
 print("Executing Margin SELL order script...")
+home_dir = Path.home()
 
 def sync_server_time(client):
     """
@@ -66,7 +68,7 @@ def place_order_with_retry(client, symbol, side, order_quantity, max_retries=3):
 
 try:
     # Step 1: Read API keys from the JSON file
-    with open("../../../dist/apikey-binance.json", "r") as file:
+    with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-binance.json", "r") as file:
         api_keys = json5.load(file)
     
     api_key = api_keys['key']

@@ -3,12 +3,14 @@ import json5
 import math
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
+from pathlib import Path
 
 print("Executing Margin SELL order script...")
+home_dir = Path.home()
 
 try:
     # Step 1: Read API keys from the JSON file
-    with open("../../../dist/apikey-binance.json", "r") as file:
+    with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-binance.json", "r") as file:
         api_keys = json5.load(file)
     
     api_key = api_keys['key']

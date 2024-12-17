@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import json5
 import math
@@ -7,6 +8,7 @@ import time
 import datetime
 
 print("Executing Margin BUY order script...")
+home_dir = Path.home()
 
 def sync_server_time(client):
     """
@@ -64,7 +66,7 @@ def place_order_with_retry(client, trading_pair, order_size, max_retries=3):
 def main():
     try:
         # Step 1: Read API keys and configuration from the JSON file
-        with open("../../../dist/apikey-binance.json", "r") as file:
+        with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-binance.json", "r") as file:
             api_keys = json5.load(file)
 
         api_key = api_keys.get('key')

@@ -3,6 +3,7 @@
 clear
 echo ""
 
+rm "./CRYPTO-Trader/src/start_protocol/*.log"
 
 
 # File containing the JSON data

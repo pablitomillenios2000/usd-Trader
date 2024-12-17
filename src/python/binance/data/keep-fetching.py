@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+
+from pathlib import Path
 import websocket
 import json5
 import requests
@@ -8,7 +10,9 @@ import time
 import threading
 
 # Load the trading pair from apikey-binance.json
-with open("../../../dist/apikey-binance.json", "r") as file:
+home_dir = Path.home()
+
+with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-binance.json", "r") as file:
     config = json5.load(file)
     if "pair" not in config:
         raise ValueError("The 'pair' key is missing in apikey-binance.json")

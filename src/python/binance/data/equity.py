@@ -4,9 +4,11 @@ import hmac
 import hashlib
 import json5
 import math
+from pathlib import Path
 
 # Load API keys and margin level from JSON5 file
-with open("../../../dist/apikey-binance.json", "r") as file:
+home_dir = Path.home()
+with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-binance.json", "r") as file:
     config = json5.load(file)
 
 API_KEY = config.get("key")
