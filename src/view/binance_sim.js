@@ -6,8 +6,8 @@ function setTitleWithPairName() {
         .then(pairName => {
             const trimmedPairName = pairName.trim();
             if (trimmedPairName) {
-                document.title = `SIMULATION - ${trimmedPairName} Data Chart`;
-                titleContents = `SIMULATION - ${trimmedPairName} Data Chart`;
+                document.title = `PRODUCTION - ${trimmedPairName} Data Chart`;
+                titleContents = `PRODUCTION - ${trimmedPairName} Data Chart`;
             }
         })
         .catch(error => console.error('Error fetching pair name:', error));
