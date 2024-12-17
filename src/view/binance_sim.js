@@ -20,10 +20,10 @@ function plotData() {
     const loadAsset = true;     // Set to false to skip loading asset.txt
 
     // Set the slope display interval
-    const slopeDisplayInterval = 5; // Change this value as needed
+    const slopeDisplayInterval = 5; // 0 = skip slopes
 
     // Variable to control logarithmic scale for portfolio value
-    const logarithmic = true; // Set to true for log scale
+    const logarithmic = true; // Set to false for linear scale
 
     // Variable to toggle display of margin data
     const showMargin = false; // Set to true to display margin data
@@ -50,10 +50,10 @@ function plotData() {
     const timestampsMargin = [];
     const valuesMargin = [];
 
-    // Arrays for trades (store them first, match later)
-    let rawTrades = [];  // Will store {timestamp, action, reason} objects
+    // Arrays for trades
+    let rawTrades = [];  // Will store { timestamp, action, reason }
 
-    // Final arrays for plotting trades once matched
+    // Final arrays for plotting trades
     const buyTimestamps = [];
     const buyValues = [];
     const buyReasons = [];
@@ -62,110 +62,316 @@ function plotData() {
     const sellValues = [];
     const sellReasons = [];
 
-    let showTrades = true;  // Will be set to false if more than 10,000 trades
+    let showTrades = true;  // Will be set to false if too many trades
 
-    let datasetsLoaded = {
-        asset: !loadAsset,
-        portfolio: false,
-        untouchedPortfolio: false,
-        ema: !loadEMA,
-        emaMicro: !loadEMAMicro,
-        emaSlopes: slopeDisplayInterval === 0 ? true : false,
-        trades: false,
-        margin: !showMargin,
-    };
-
-    // Thresholds and colors
+    // Thresholds
     const thresholds = [
         { value: 100000, label: '100K', color: '#87CEFA' },
         { value: 1000000, label: '1M', color: '#6495ED' },
         { value: 100000000, label: '100M', color: '#4169E1' },
         { value: 4000000000, label: '4B', color: '#00008B' }
     ];
+    let thresholdTraces = [];
 
     let shapes = [];
     let annotations = [];
-    let thresholdTraces = [];
+
+    // ---------------------------
+    //  Promisified parse helpers
+    // ---------------------------
+    function parseCSV(url, callback) {
+        return new Promise((resolve, reject) => {
+            Papa.parse(url, {
+                download: true,
+                delimiter: ',',
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    callback(results.data);
+                    resolve();
+                },
+                error: function (error) {
+                    console.error('Error parsing:', url, error);
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    // Parse each file concurrently. Some are conditional
+    const parsePromises = [];
+
+    // TRADES
+    parsePromises.push(
+        parseCSV('./output/trades.txt', (data) => {
+            data.forEach(row => {
+                if (row.length < 3) return;
+                const [timestamp, action, reason] = row;
+                if (typeof timestamp === 'number' && action && reason) {
+                    rawTrades.push({ timestamp, action, reason });
+                }
+            });
+        })
+    );
+
+    // PORTFOLIO
+    parsePromises.push(
+        parseCSV('./output/portfolio.txt', (data) => {
+            data.forEach(row => {
+                if (row.length < 2) return;
+                const [timestamp, value] = row;
+                if (typeof timestamp === 'number' && value !== undefined) {
+                    timestampsPortfolio.push(timestamp);
+                    valuesPortfolio.push(value);
+                }
+            });
+        })
+    );
+
+    // UNTOUCHED PORTFOLIO
+    parsePromises.push(
+        parseCSV('./output/untouched_portfolio.txt', (data) => {
+            data.forEach(row => {
+                if (row.length < 2) return;
+                const [timestamp, value] = row;
+                if (typeof timestamp === 'number' && value !== undefined) {
+                    timestampsUntouchedPortfolio.push(timestamp);
+                    valuesUntouchedPortfolio.push(value);
+                }
+            });
+        })
+    );
+
+    // EMA (conditional)
+    if (loadEMA) {
+        parsePromises.push(
+            parseCSV('./output/expma.txt', (data) => {
+                data.forEach(row => {
+                    if (row.length < 2) return;
+                    const [timestamp, value] = row;
+                    if (typeof timestamp === 'number' && value !== undefined) {
+                        timestampsEMA.push(timestamp);
+                        valuesEMA.push(value);
+                    }
+                });
+            })
+        );
+    }
+
+    // EMA MICRO (conditional)
+    if (loadEMAMicro) {
+        parsePromises.push(
+            parseCSV('./output/expma_micro.txt', (data) => {
+                data.forEach(row => {
+                    if (row.length < 2) return;
+                    const [timestamp, value] = row;
+                    if (typeof timestamp === 'number' && value !== undefined) {
+                        timestampsEMAMicro.push(timestamp);
+                        valuesEMAMicro.push(value);
+                    }
+                });
+            })
+        );
+    }
+
+    // SLOPES (conditional)
+    if (slopeDisplayInterval > 0) {
+        parsePromises.push(
+            parseCSV('./output/ema_slopes.txt', (data) => {
+                data.forEach(row => {
+                    if (row.length < 2) return;
+                    const [timestamp, slopeValue] = row;
+                    if (typeof timestamp === 'number' && slopeValue !== undefined) {
+                        timestampsSlopes.push(timestamp);
+                        slopes.push(slopeValue);
+                    }
+                });
+            })
+        );
+    }
+
+    // ASSET (conditional)
+    if (loadAsset) {
+        parsePromises.push(
+            parseCSV('./output/asset.txt', (data) => {
+                data.forEach(row => {
+                    if (row.length < 2) return;
+                    const [timestamp, value] = row;
+                    if (typeof timestamp === 'number' && value !== undefined) {
+                        timestampsAsset.push(timestamp);
+                        valuesAsset.push(value);
+                    }
+                });
+            })
+        );
+    }
+
+    // MARGIN (conditional)
+    if (showMargin) {
+        parsePromises.push(
+            parseCSV('./output/margin.txt', (data) => {
+                data.forEach(row => {
+                    if (row.length < 2) return;
+                    const [timestamp, value] = row;
+                    if (typeof timestamp === 'number' && value !== undefined) {
+                        timestampsMargin.push(timestamp);
+                        valuesMargin.push(value);
+                    }
+                });
+            })
+        );
+    }
+
+    // ---------------------------
+    //  Fetch all files concurrently
+    // ---------------------------
+    Promise.all(parsePromises)
+        .then(() => {
+            applyThresholdChecks();
+            matchTradesToPortfolio();
+            createChart();
+        })
+        .catch(err => console.error('Error loading data:', err));
+
+    function applyThresholdChecks() {
+        thresholds.forEach(threshold => {
+            let thresholdTimestamp = null;
+            let thresholdValue = threshold.value;
+
+            for (let i = 0; i < valuesPortfolio.length; i++) {
+                if (valuesPortfolio[i] >= thresholdValue) {
+                    thresholdTimestamp = timestampsPortfolio[i];
+                    break;
+                }
+            }
+
+            if (thresholdTimestamp !== null) {
+                thresholdTraces.push({
+                    x: [new Date(thresholdTimestamp * 1000)],
+                    y: [thresholdValue],
+                    mode: 'markers',
+                    type: 'scattergl',
+                    name: threshold.label,
+                    yaxis: 'y2',
+                    marker: {
+                        symbol: 'x',
+                        size: 12,
+                        color: threshold.color
+                    },
+                    hoverinfo: 'text',
+                    hovertext: `Portfolio reached ${threshold.label} (${thresholdValue.toLocaleString()})`
+                });
+            }
+        });
+    }
+
+    function matchTradesToPortfolio() {
+        rawTrades.forEach(trade => {
+            const { timestamp, action, reason } = trade;
+            const idx = timestampsPortfolio.indexOf(timestamp);
+            if (idx !== -1) {
+                const value = valuesPortfolio[idx];
+                if (action === 'buy') {
+                    buyTimestamps.push(timestamp);
+                    buyValues.push(value);
+                    buyReasons.push(reason);
+                } else if (action === 'sell') {
+                    sellTimestamps.push(timestamp);
+                    sellValues.push(value);
+                    sellReasons.push(reason);
+                }
+            } else {
+                console.warn(`No exact match in portfolio for trade at timestamp ${timestamp}`);
+            }
+        });
+
+        const totalTrades = buyTimestamps.length + sellTimestamps.length;
+        if (totalTrades > 1000) {
+            showTrades = false;
+        }
+    }
 
     function createChart() {
+        const lineStyle = {
+            shape: 'spline',  // smooth lines
+            smoothing: 1.3,   // adjust smoothing factor as needed
+            width: 2          // thicker line for clarity on 4K
+        };
+
         const traces = [];
 
-        // Only add the asset trace if asset was loaded and data is present
+        // Asset trace
         if (loadAsset && timestampsAsset.length > 0) {
-            const assetTrace = {
+            traces.push({
                 x: timestampsAsset.map(ts => new Date(ts * 1000)),
                 y: valuesAsset,
                 mode: 'lines',
-                type: 'scatter',
+                type: 'scattergl',
                 name: 'Asset Price',
                 yaxis: 'y1',
-            };
-            traces.push(assetTrace);
+                line: lineStyle,
+            });
         }
 
         // Portfolio trace
-        const portfolioTrace = {
+        traces.push({
             x: timestampsPortfolio.map(ts => new Date(ts * 1000)),
             y: valuesPortfolio,
             mode: 'lines',
-            type: 'scatter',
+            type: 'scattergl',
             name: 'Portfolio Value',
             yaxis: 'y2',
-            line: { color: 'orange' },
-        };
-        traces.push(portfolioTrace);
+            line: Object.assign({ color: 'orange' }, lineStyle),
+        });
 
-        // Untouched portfolio trace
-        const untouchedPortfolioTrace = {
+        // Untouched portfolio
+        traces.push({
             x: timestampsUntouchedPortfolio.map(ts => new Date(ts * 1000)),
             y: valuesUntouchedPortfolio,
             mode: 'lines',
-            type: 'scatter',
-            name: 'Untouched Portfolio Value',
+            type: 'scattergl',
+            name: 'Untouched Portfolio',
             yaxis: 'y2',
-            line: { color: 'darkblue' }
-        };
-        traces.push(untouchedPortfolioTrace);
+            line: Object.assign({ color: 'darkblue' }, lineStyle),
+        });
 
-        // EMA traces if loaded
+        // EMA trace
         if (loadEMA && timestampsEMA.length > 0) {
-            const emaTrace = {
+            traces.push({
                 x: timestampsEMA.map(ts => new Date(ts * 1000)),
                 y: valuesEMA,
                 mode: 'lines',
-                type: 'scatter',
+                type: 'scattergl',
                 name: 'EMA',
                 yaxis: 'y1',
-                line: { color: 'black', shape: 'spline' },
-            };
-            traces.push(emaTrace);
+                line: Object.assign({ color: 'black' }, lineStyle),
+            });
         }
 
+        // EMA Micro
         if (loadEMAMicro && timestampsEMAMicro.length > 0) {
-            const emaMicroTrace = {
+            traces.push({
                 x: timestampsEMAMicro.map(ts => new Date(ts * 1000)),
                 y: valuesEMAMicro,
                 mode: 'lines',
-                type: 'scatter',
+                type: 'scattergl',
                 name: 'EMA Micro',
                 yaxis: 'y1',
-                line: { color: 'purple', shape: 'spline' },
-            };
-            traces.push(emaMicroTrace);
+                line: Object.assign({ color: 'purple' }, lineStyle),
+            });
         }
 
-        // Margin trace if enabled
+        // Margin trace
         if (showMargin && timestampsMargin.length > 0) {
-            const marginTrace = {
+            traces.push({
                 x: timestampsMargin.map(ts => new Date(ts * 1000)),
                 y: valuesMargin,
                 mode: 'lines',
-                type: 'scatter',
+                type: 'scattergl',
                 name: 'Margin',
                 yaxis: 'y2',
-                line: { color: 'red' },
-            };
-            traces.push(marginTrace);
+                line: Object.assign({ color: 'red' }, lineStyle),
+            });
         }
 
         // Threshold markers
@@ -179,7 +385,7 @@ function plotData() {
                 x: buyTimestamps.map(ts => new Date(ts * 1000)),
                 y: buyValues,
                 mode: 'markers',
-                type: 'scatter',
+                type: 'scattergl',
                 name: 'Buy Trades',
                 marker: { color: 'green', size: 10 },
                 yaxis: 'y2',
@@ -188,7 +394,7 @@ function plotData() {
                 x: sellTimestamps.map(ts => new Date(ts * 1000)),
                 y: sellValues,
                 mode: 'markers',
-                type: 'scatter',
+                type: 'scattergl',
                 name: 'Sell Trades',
                 marker: { color: 'red', size: 10 },
                 yaxis: 'y2',
@@ -228,6 +434,7 @@ function plotData() {
                 title: 'Asset Price',
                 side: 'left',
                 showgrid: true,
+                type: 'linear'
             },
             yaxis2: {
                 title: 'Portfolio Value',
@@ -246,277 +453,18 @@ function plotData() {
             shapes: shapes,
         };
 
-        Plotly.newPlot('chart', traces, layout);
+        // Higher pixel ratio for sharper lines on 4K
+        const config = {
+            plotGlPixelRatio: 3  // try 2 or 3 depending on your performance needs
+        };
+
+        Plotly.newPlot('chart', traces, layout, config);
     }
-
-    function checkIfReadyToCreateChart() {
-        const allLoaded = Object.values(datasetsLoaded).every((loaded) => loaded);
-        if (allLoaded) {
-            // Threshold checks
-            thresholds.forEach(threshold => {
-                let thresholdTimestamp = null;
-                let thresholdValue = threshold.value;
-
-                for (let i = 0; i < valuesPortfolio.length; i++) {
-                    if (valuesPortfolio[i] >= thresholdValue) {
-                        thresholdTimestamp = timestampsPortfolio[i];
-                        break;
-                    }
-                }
-
-                if (thresholdTimestamp !== null) {
-                    thresholdTraces.push({
-                        x: [new Date(thresholdTimestamp * 1000)],
-                        y: [thresholdValue],
-                        mode: 'markers',
-                        type: 'scatter',
-                        name: threshold.label,
-                        yaxis: 'y2',
-                        marker: {
-                            symbol: 'x',
-                            size: 12,
-                            color: threshold.color
-                        },
-                        hoverinfo: 'text',
-                        hovertext: `Portfolio reached ${threshold.label} (${thresholdValue.toLocaleString()})`
-                    });
-                }
-            });
-
-            // Now that trades and portfolio are loaded, match trades to portfolio
-            matchTradesToPortfolio();
-
-            createChart();
-        }
-    }
-
-    function matchTradesToPortfolio() {
-        // For each trade, find the exact matching portfolio timestamp
-        rawTrades.forEach(trade => {
-            const { timestamp, action, reason } = trade;
-            const idx = timestampsPortfolio.indexOf(timestamp);
-            if (idx !== -1) {
-                const value = valuesPortfolio[idx];
-                if (action === 'buy') {
-                    buyTimestamps.push(timestamp);
-                    buyValues.push(value);
-                    buyReasons.push(reason);
-                } else if (action === 'sell') {
-                    sellTimestamps.push(timestamp);
-                    sellValues.push(value);
-                    sellReasons.push(reason);
-                }
-            } else {
-                console.warn(`No exact match in portfolio for trade at timestamp ${timestamp}`);
-            }
-        });
-
-        const totalTrades = buyTimestamps.length + sellTimestamps.length;
-        if (totalTrades > 1000) {
-            showTrades = false;
-        }
-    }
-
-    function parseTradesData() {
-        Papa.parse('./output/trades.txt', {
-            download: true,
-            delimiter: ',',
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            complete: function (results) {
-                const data = results.data;
-                data.forEach(row => {
-                    if (row.length < 3) return;
-                    const [timestamp, action, reason] = row;
-
-                    if (typeof timestamp === 'number' && action && reason) {
-                        rawTrades.push({ timestamp, action, reason });
-                    }
-                });
-                datasetsLoaded.trades = true;
-                // After trades are parsed, parse the portfolio data
-                parsePortfolioData();
-            },
-            error: function (error) {
-                console.error('Error parsing trades file:', error);
-            },
-        });
-    }
-
-    function parsePortfolioData() {
-        Papa.parse('./output/portfolio.txt', {
-            download: true,
-            delimiter: ',',
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            step: function (row) {
-                const [timestamp, value] = row.data;
-                if (typeof timestamp === 'number' && value !== undefined) {
-                    timestampsPortfolio.push(timestamp);
-                    valuesPortfolio.push(value);
-                }
-            },
-            complete: function () {
-                datasetsLoaded.portfolio = true;
-                checkIfReadyToCreateChart();
-            },
-            error: function (error) {
-                console.error('Error parsing portfolio data file:', error);
-            },
-        });
-    }
-
-    // Parse untouched portfolio
-    Papa.parse('./output/untouched_portfolio.txt', {
-        download: true,
-        delimiter: ',',
-        dynamicTyping: true,
-        skipEmptyLines: true,
-        step: function (row) {
-            const [timestamp, value] = row.data;
-            if (typeof timestamp === 'number' && value !== undefined) {
-                timestampsUntouchedPortfolio.push(timestamp);
-                valuesUntouchedPortfolio.push(value);
-            }
-        },
-        complete: function () {
-            datasetsLoaded.untouchedPortfolio = true;
-            checkIfReadyToCreateChart();
-        },
-        error: function (error) {
-            console.error('Error parsing untouched portfolio data file:', error);
-        },
-    });
-
-    // Parse EMA if enabled
-    if (loadEMA) {
-        Papa.parse('./output/expma.txt', {
-            download: true,
-            delimiter: ',',
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            step: function (row) {
-                const [timestamp, value] = row.data;
-                if (typeof timestamp === 'number' && value !== undefined) {
-                    timestampsEMA.push(timestamp);
-                    valuesEMA.push(value);
-                }
-            },
-            complete: function () {
-                datasetsLoaded.ema = true;
-                checkIfReadyToCreateChart();
-            },
-            error: function (error) {
-                console.error('Error parsing EMA data file:', error);
-            },
-        });
-    }
-
-    // Parse EMA Micro if enabled
-    if (loadEMAMicro) {
-        Papa.parse('./output/expma_micro.txt', {
-            download: true,
-            delimiter: ',',
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            step: function (row) {
-                const [timestamp, value] = row.data;
-                if (typeof timestamp === 'number' && value !== undefined) {
-                    timestampsEMAMicro.push(timestamp);
-                    valuesEMAMicro.push(value);
-                }
-            },
-            complete: function () {
-                datasetsLoaded.emaMicro = true;
-                checkIfReadyToCreateChart();
-            },
-            error: function (error) {
-                console.error('Error parsing EMA micro data file:', error);
-            },
-        });
-    }
-
-    // Parse EMA Slopes if enabled
-    if (slopeDisplayInterval > 0) {
-        Papa.parse('./output/ema_slopes.txt', {
-            download: true,
-            delimiter: ',',
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            step: function (row) {
-                const [timestamp, slopeValue] = row.data;
-                if (typeof timestamp === 'number' && slopeValue !== undefined) {
-                    timestampsSlopes.push(timestamp);
-                    slopes.push(slopeValue);
-                }
-            },
-            complete: function () {
-                datasetsLoaded.emaSlopes = true;
-                checkIfReadyToCreateChart();
-            },
-            error: function (error) {
-                console.error('Error parsing EMA slopes data file:', error);
-            },
-        });
-    }
-
-    // Parse asset data if enabled
-    if (loadAsset) {
-        Papa.parse('./output/asset.txt', {
-            download: true,
-            delimiter: ',',
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            step: function (row) {
-                const [timestamp, value] = row.data;
-                if (typeof timestamp === 'number' && value !== undefined) {
-                    timestampsAsset.push(timestamp);
-                    valuesAsset.push(value);
-                }
-            },
-            complete: function () {
-                datasetsLoaded.asset = true;
-                checkIfReadyToCreateChart();
-            },
-            error: function (error) {
-                console.error('Error parsing asset data file:', error);
-            },
-        });
-    } else {
-        datasetsLoaded.asset = true;
-    }
-
-    // Parse margin if enabled
-    if (showMargin) {
-        Papa.parse('./output/margin.txt', {
-            download: true,
-            delimiter: ',',
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            step: function (row) {
-                const [timestamp, value] = row.data;
-                if (typeof timestamp === 'number' && value !== undefined) {
-                    timestampsMargin.push(timestamp);
-                    valuesMargin.push(value);
-                }
-            },
-            complete: function () {
-                datasetsLoaded.margin = true;
-                checkIfReadyToCreateChart();
-            },
-            error: function (error) {
-                console.error('Error parsing margin data file:', error);
-            },
-        });
-    }
-
-    // Start by parsing trades first
-    parseTradesData();
 }
 
 // Add a div for the chart in the DOM
 document.body.innerHTML += '<div id="chart" style="width: 100%; height: 98vh;"></div>';
 
-// Call the function to plot the data
+// Call the functions
 setTitleWithPairName();
 plotData();
