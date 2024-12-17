@@ -3,6 +3,8 @@
 
 create a google cloud vm
 
+Use the latest ubuntu LTS operating system (needs to be changed manually)
+
 allow http and https traffic on the machine creation page
 
 edit the firewall rules to allow "all protocols and ports"
