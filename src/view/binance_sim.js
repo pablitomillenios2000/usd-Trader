@@ -255,7 +255,7 @@ function plotData() {
                     yaxis: 'y2',
                     marker: {
                         symbol: 'x',
-                        size: 12,
+                        size: 20,
                         color: threshold.color
                     },
                     hoverinfo: 'text',
@@ -374,11 +374,6 @@ function plotData() {
             });
         }
 
-        // Threshold markers
-        if (thresholdTraces.length > 0) {
-            traces.push(...thresholdTraces);
-        }
-
         // Trades
         if (showTrades && (buyTimestamps.length > 0 || sellTimestamps.length > 0)) {
             const buyTrace = {
@@ -413,6 +408,7 @@ function plotData() {
                     yshift: 10,
                 });
             });
+
             sellTimestamps.forEach((ts, index) => {
                 annotations.push({
                     x: new Date(ts * 1000),
@@ -425,6 +421,11 @@ function plotData() {
                     yshift: -10,
                 });
             });
+        }
+
+        // IMPORTANT: Push threshold traces LAST so they appear on top
+        if (thresholdTraces.length > 0) {
+            traces.push(...thresholdTraces);
         }
 
         const layout = {
