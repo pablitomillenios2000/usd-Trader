@@ -1,30 +1,13 @@
-#!/usr/bin/env python3
-
-from wsgiref.simple_server import make_server
+from flask import Flask, send_file, abort
 import os
 
-def app(environ, start_response):
-    path = environ.get('PATH_INFO', '').lstrip('/')
-    file_path = os.path.join('.', path)
-    if os.path.exists(file_path) and path.endswith('.br'):
-        status = '200 OK'
-        headers = [
-            ('Content-Type', 'application/octet-stream'),
-            ('Content-Encoding', 'br')
-        ]
-        with open(file_path, 'rb') as f:
-            content = f.read()
-        start_response(status, headers)
-        return [content]
-    else:
-        status = '404 Not Found'
-        headers = [('Content-Type', 'text/plain')]
-        start_response(status, headers)
-        return [b'File not found']
+app = Flask(__name__)
 
-if __name__ == '__main__':
-    with make_server('', 8000, app) as httpd:
-        print("Serving on port 8000...")
-        httpd.serve_forever()
+@app.route('/<path:file_path>')
+def serve_brotli(file_path):
+    if os.path.exists(file_path) and file_path.endswith('.br'):
+        return send_file(file_path, mimetype='application/octet-stream', as_attachment=False, conditional=True, add_etags=True, headers={"Content-Encoding": "br"})
+    abort(404)
 
-    print("Server stopped.")
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)
