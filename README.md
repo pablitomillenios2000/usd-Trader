@@ -16,6 +16,8 @@ The API-Keys are mandatory and can be obtained on the crypto exchange
 
 [Billionaire coins](docs/billionaire.md)
 
+[This year starters](docs/this%20year%20good%20starters.md)
+
 [Keeping system time sharp](docs/chrony.md)
 
 [CSV Backtracking Data Downlaod](docs/CSV-DATA.md)
