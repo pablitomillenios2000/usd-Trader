@@ -1,7 +1,7 @@
 let titleContents = '';
 
 function setTitleWithPairName() {
-    fetch('./output/pairname.txt ')
+    fetch('./output/pairname.txt')
         .then(response => response.text())
         .then(pairName => {
             const trimmedPairName = pairName.trim();
@@ -15,9 +15,9 @@ function setTitleWithPairName() {
 
 function plotData() {
     // Variables to skip loading certain files
-    const loadEMA = true;       // Set to false to skip loading expma.txt 
-    const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt 
-    const loadAsset = true;     // Set to false to skip loading asset.txt 
+    const loadEMA = true;       // Set to false to skip loading expma.txt
+    const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
+    const loadAsset = true;     // Set to false to skip loading asset.txt
 
     // Set the slope display interval
     const slopeDisplayInterval = 5; // 0 = skip slopes
@@ -103,7 +103,7 @@ function plotData() {
 
     // TRADES
     parsePromises.push(
-        parseCSV('./output/trades.txt ', (data) => {
+        parseCSV('./output/trades.txt', (data) => {
             data.forEach(row => {
                 if (row.length < 3) return;
                 const [timestamp, action, reason] = row;
@@ -116,7 +116,7 @@ function plotData() {
 
     // PORTFOLIO
     parsePromises.push(
-        parseCSV('./output/portfolio.txt ', (data) => {
+        parseCSV('./output/portfolio.txt', (data) => {
             data.forEach(row => {
                 if (row.length < 2) return;
                 const [timestamp, value] = row;
@@ -130,7 +130,7 @@ function plotData() {
 
     // UNTOUCHED PORTFOLIO
     parsePromises.push(
-        parseCSV('./output/untouched_portfolio.txt ', (data) => {
+        parseCSV('./output/untouched_portfolio.txt', (data) => {
             data.forEach(row => {
                 if (row.length < 2) return;
                 const [timestamp, value] = row;
@@ -145,7 +145,7 @@ function plotData() {
     // EMA (conditional)
     if (loadEMA) {
         parsePromises.push(
-            parseCSV('./output/expma.txt ', (data) => {
+            parseCSV('./output/expma.txt', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, value] = row;
@@ -161,7 +161,7 @@ function plotData() {
     // EMA MICRO (conditional)
     if (loadEMAMicro) {
         parsePromises.push(
-            parseCSV('./output/expma_micro.txt ', (data) => {
+            parseCSV('./output/expma_micro.txt', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, value] = row;
@@ -177,7 +177,7 @@ function plotData() {
     // SLOPES (conditional)
     if (slopeDisplayInterval > 0) {
         parsePromises.push(
-            parseCSV('./output/ema_slopes.txt ', (data) => {
+            parseCSV('./output/ema_slopes.txt', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, slopeValue] = row;
@@ -193,7 +193,7 @@ function plotData() {
     // ASSET (conditional)
     if (loadAsset) {
         parsePromises.push(
-            parseCSV('./output/asset.txt ', (data) => {
+            parseCSV('./output/asset.txt', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, value] = row;
@@ -209,7 +209,7 @@ function plotData() {
     // MARGIN (conditional)
     if (showMargin) {
         parsePromises.push(
-            parseCSV('./output/margin.txt ', (data) => {
+            parseCSV('./output/margin.txt', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, value] = row;
