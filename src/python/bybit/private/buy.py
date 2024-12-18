@@ -18,44 +18,50 @@ with open(credentials_file, 'r') as f:
 
 api_key = creds.get("key")
 api_secret = creds.get("secret")
-leverage = creds.get("margin", 1)
+leverage = float(creds.get("margin", 1))
 
 # Bybit V5 endpoints
 endpoint = "https://api.bybit.com"
-api_path = "/v5/order/create"
-url = f"{endpoint}{api_path}"
+balance_path = "/v5/account/wallet-balance"
+balance_url = f"{endpoint}{balance_path}"
 
-# Prepare order parameters
-params = {
+balance_params = {
+    "accountType": "UNIFIED",
     "api_key": api_key,
-    "category": "spot",
-    "orderType": "Market",
-    "qty": "1",
-    "recvWindow": "5000",
-    "side": "Buy",
-    "symbol": "XRPUSDT",
-    "timeInForce": "GTC",
-    "timestamp": str(int(time.time() * 1000))
+    "timestamp": str(int(time.time() * 1000)),
+    "recvWindow": "5000"
 }
 
 # Sort parameters by key
-sorted_params = dict(sorted(params.items(), key=lambda x: x[0]))
+sorted_balance_params = dict(sorted(balance_params.items(), key=lambda x: x[0]))
+balance_param_str = "&".join([f"{k}={v}" for k, v in sorted_balance_params.items()])
 
-# Create the query string
-param_str = "&".join([f"{k}={v}" for k, v in sorted_params.items()])
-
-# Generate the signature
-signature = hmac.new(
+# Sign the request
+balance_signature = hmac.new(
     api_secret.encode('utf-8'),
-    param_str.encode('utf-8'),
+    balance_param_str.encode('utf-8'),
     hashlib.sha256
 ).hexdigest()
 
-# Add the signature to the final request body
-final_body = {**sorted_params, "sign": signature}
+balance_final_params = {**sorted_balance_params, "sign": balance_signature}
 
-headers = {"Content-Type": "application/json"}
+# Request balance
+balance_response = requests.get(balance_url, params=balance_final_params)
 
-# Make the POST request
-response = requests.post(url, headers=headers, data=json.dumps(final_body))
-print(response.json())
+# Debug: Check raw response
+print("Status code:", balance_response.status_code)
+print("Raw response:", balance_response.text)
+
+# Attempt to parse JSON after verifying content
+try:
+    balance_data = balance_response.json()
+except ValueError:
+    print("Response is not valid JSON.")
+    print("Response text:", balance_response.text)
+    exit()
+
+if balance_data.get("retCode") != 0:
+    print("Error fetching balance:", balance_data)
+    exit()
+
+# Once you have the balance data parsed correctly, proceed with the rest of your logic...
