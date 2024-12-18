@@ -33,8 +33,8 @@ else
     echo "starting the web server and disowning it from the terminal"
     cd src/view
     python3 ./brotli_server.py > /dev/null 2>&1 &
-    ps aux | grep "pthon3 -m http.server"
-    disown $(ps aux | grep "[p]ython3 -m http.server" | awk '{print $2}')
+    ps aux | grep "python3 ./brotli_server.py"
+    disown $(ps aux | grep "[p]ython3 ./brotli_server.py" | awk '{print $2}')
     cd ../../
     echo "Server started successfully."
 fi
@@ -48,7 +48,21 @@ cd "src/python/binance/data/"
 ./keep-fetching.py > ../../../start_protocol/keep_fetching.log & disown $!
 cd ../../../../
 
+echo "Waiting for 100 seconds with a progress bar..."
+# Progress bar for 100 seconds
+total=30
+for ((i = 0; i <= total; i++)); do
+    # Calculate progress percentage
+    progress=$((i * 100 / total))
+    # Display the progress bar
+    printf " "
+    printf " "
+    printf "\rProgress: [%-50s] %d%%" "$(printf '#%.0s' $(seq 1 $((i * 50 / total))))" "$progress"
+    sleep 1
+done
 echo ""
+echo ""
+
 echo "starting the recompute bucle"
 rm ./src/start_protocol/bucle.log
 cd ./src/dist
@@ -64,6 +78,3 @@ python3 ./recompute.py
 echo ""
 
 echo "Server start has been triggered. Please load localhost now"
-
-
-
