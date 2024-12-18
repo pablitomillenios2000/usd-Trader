@@ -7,5 +7,6 @@ pip install websockets
 pip install python-binance
 pip install binance
 pip install pandas tqdm 
-pip install pybit
+pip install bybit
 pip install json5
+pip install --upgrade urllib3 six bravado bravado-core
