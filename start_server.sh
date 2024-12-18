@@ -32,7 +32,7 @@ else
     echo "Starting server on port $PORT..."
     echo "starting the web server and disowning it from the terminal"
     cd src/view
-    python3 -m http.server > /dev/null 2>&1 &
+    python3 ./brotli_server.py > /dev/null 2>&1 &
     ps aux | grep "pthon3 -m http.server"
     disown $(ps aux | grep "[p]ython3 -m http.server" | awk '{print $2}')
     cd ../../
