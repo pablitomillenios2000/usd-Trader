@@ -18,6 +18,7 @@ with open(credentials_file, 'r') as f:
 
 api_key = creds.get("key")
 api_secret = creds.get("secret")
+leverage = creds.get("margin", 1)
 
 # Bybit V5 endpoints
 endpoint = "https://api.bybit.com"
