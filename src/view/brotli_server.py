@@ -38,6 +38,6 @@ class BrotliHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 # Set up the server
 PORT = 8000
-httpd = HTTPServer(('localhost', PORT), BrotliHTTPRequestHandler)
+httpd = HTTPServer(('0.0.0.0', PORT), BrotliHTTPRequestHandler)
 print(f"Serving on http://localhost:{PORT}")
 httpd.serve_forever()
