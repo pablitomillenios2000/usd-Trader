@@ -10,4 +10,5 @@ pip install binance
 pip install pandas tqdm 
 pip install bybit
 pip install json5
+pip install brotli
 pip install --upgrade urllib3 six bravado bravado-core
