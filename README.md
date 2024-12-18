@@ -14,6 +14,8 @@ The API-Keys are mandatory and can be obtained on the crypto exchange
 
 [.json Config File](docs/json-config.md)
 
+[Billionaire coins](docs/billionaire.md)
+
 [Keeping system time sharp](docs/chrony.md)
 
 [CSV Backtracking Data Downlaod](docs/CSV-DATA.md)
