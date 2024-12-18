@@ -12,3 +12,5 @@ pip install bybit
 pip install json5
 pip install brotli
 pip install --upgrade urllib3 six bravado bravado-core
+
+sudo apt install caddy
