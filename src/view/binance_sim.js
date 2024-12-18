@@ -1,10 +1,27 @@
 let titleContents = '';
 
+// Function to fetch and decompress a Brotli file (.txt.br)
+function fetchAndDecompress(url) {
+    return fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok ' + response.statusText);
+            }
+            return response.arrayBuffer();
+        })
+        .then(arrayBuffer => {
+            // Decompress using Brotli
+            const decompressedData = BrotliDecode(new Uint8Array(arrayBuffer));
+            // Decode UTF-8
+            return new TextDecoder('utf-8').decode(decompressedData);
+        });
+}
+
 function setTitleWithPairName() {
-    fetch('./output/pairname.txt')
-        .then(response => response.text())
-        .then(pairName => {
-            const trimmedPairName = pairName.trim();
+    // Load pairname from pairname.txt.br
+    fetchAndDecompress('./output/pairname.txt.br')
+        .then(text => {
+            const trimmedPairName = text.trim();
             if (trimmedPairName) {
                 document.title = `PRODUCTION - ${trimmedPairName} Data Chart`;
                 titleContents = `PRODUCTION - ${trimmedPairName} Data Chart`;
@@ -15,9 +32,9 @@ function setTitleWithPairName() {
 
 function plotData() {
     // Variables to skip loading certain files
-    const loadEMA = true;       // Set to false to skip loading expma.txt
-    const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
-    const loadAsset = true;     // Set to false to skip loading asset.txt
+    const loadEMA = true;       // Set to false to skip loading expma.txt.br
+    const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt.br
+    const loadAsset = true;     // Set to false to skip loading asset.txt.br
 
     // Set the slope display interval
     const slopeDisplayInterval = 5; // 0 = skip slopes
@@ -77,24 +94,26 @@ function plotData() {
     let annotations = [];
 
     // ---------------------------
-    //  Promisified parse helpers
+    //  Promisified fetch & parse helpers
     // ---------------------------
+
+    // Generic parse function that fetches, decompresses, and parses CSV text
     function parseCSV(url, callback) {
         return new Promise((resolve, reject) => {
-            Papa.parse(url, {
-                download: true,
-                delimiter: ',',
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: function (results) {
+            fetchAndDecompress(url)
+                .then(csvString => {
+                    const results = Papa.parse(csvString, {
+                        delimiter: ',',
+                        dynamicTyping: true,
+                        skipEmptyLines: true
+                    });
                     callback(results.data);
                     resolve();
-                },
-                error: function (error) {
+                })
+                .catch(error => {
                     console.error('Error parsing:', url, error);
                     reject(error);
-                }
-            });
+                });
         });
     }
 
@@ -103,7 +122,7 @@ function plotData() {
 
     // TRADES
     parsePromises.push(
-        parseCSV('./output/trades.txt', (data) => {
+        parseCSV('./output/trades.txt.br', (data) => {
             data.forEach(row => {
                 if (row.length < 3) return;
                 const [timestamp, action, reason] = row;
@@ -116,7 +135,7 @@ function plotData() {
 
     // PORTFOLIO
     parsePromises.push(
-        parseCSV('./output/portfolio.txt', (data) => {
+        parseCSV('./output/portfolio.txt.br', (data) => {
             data.forEach(row => {
                 if (row.length < 2) return;
                 const [timestamp, value] = row;
@@ -130,7 +149,7 @@ function plotData() {
 
     // UNTOUCHED PORTFOLIO
     parsePromises.push(
-        parseCSV('./output/untouched_portfolio.txt', (data) => {
+        parseCSV('./output/untouched_portfolio.txt.br', (data) => {
             data.forEach(row => {
                 if (row.length < 2) return;
                 const [timestamp, value] = row;
@@ -145,7 +164,7 @@ function plotData() {
     // EMA (conditional)
     if (loadEMA) {
         parsePromises.push(
-            parseCSV('./output/expma.txt', (data) => {
+            parseCSV('./output/expma.txt.br', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, value] = row;
@@ -161,7 +180,7 @@ function plotData() {
     // EMA MICRO (conditional)
     if (loadEMAMicro) {
         parsePromises.push(
-            parseCSV('./output/expma_micro.txt', (data) => {
+            parseCSV('./output/expma_micro.txt.br', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, value] = row;
@@ -177,7 +196,7 @@ function plotData() {
     // SLOPES (conditional)
     if (slopeDisplayInterval > 0) {
         parsePromises.push(
-            parseCSV('./output/ema_slopes.txt', (data) => {
+            parseCSV('./output/ema_slopes.txt.br', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, slopeValue] = row;
@@ -193,7 +212,7 @@ function plotData() {
     // ASSET (conditional)
     if (loadAsset) {
         parsePromises.push(
-            parseCSV('./output/asset.txt', (data) => {
+            parseCSV('./output/asset.txt.br', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, value] = row;
@@ -209,7 +228,7 @@ function plotData() {
     // MARGIN (conditional)
     if (showMargin) {
         parsePromises.push(
-            parseCSV('./output/margin.txt', (data) => {
+            parseCSV('./output/margin.txt.br', (data) => {
                 data.forEach(row => {
                     if (row.length < 2) return;
                     const [timestamp, value] = row;
@@ -222,9 +241,6 @@ function plotData() {
         );
     }
 
-    // ---------------------------
-    //  Fetch all files concurrently
-    // ---------------------------
     Promise.all(parsePromises)
         .then(() => {
             applyThresholdChecks();
@@ -294,8 +310,8 @@ function plotData() {
     function createChart() {
         const lineStyle = {
             shape: 'spline',  // smooth lines
-            smoothing: 1.3,   // adjust smoothing factor as needed
-            width: 2          // thicker line for clarity on 4K
+            smoothing: 1.3,
+            width: 2
         };
 
         const traces = [];
@@ -423,7 +439,7 @@ function plotData() {
             });
         }
 
-        // IMPORTANT: Push threshold traces LAST so they appear on top
+        // Threshold traces
         if (thresholdTraces.length > 0) {
             traces.push(...thresholdTraces);
         }
@@ -454,18 +470,14 @@ function plotData() {
             shapes: shapes,
         };
 
-        // Higher pixel ratio for sharper lines on 4K
         const config = {
-            plotGlPixelRatio: 5  // try 2 or 3 depending on your performance needs
+            plotGlPixelRatio: 5
         };
 
         Plotly.newPlot('chart', traces, layout, config);
     }
 }
 
-// Add a div for the chart in the DOM
-document.body.innerHTML += '<div id="chart" style="width: 100%; height: 98vh;"></div>';
-
-// Call the functions
+// Initiate everything
 setTitleWithPairName();
 plotData();
