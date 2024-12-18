@@ -148,7 +148,7 @@ if leverage_resp_data.get("retCode") != 0:
 # -------------------- PLACE ORDER --------------------
 order_path = "/v5/order/create"
 order_body = {
-    "category": "linear", 
+    "category": "spot", 
     "symbol": "XRPUSDT",
     "side": "Buy",
     "orderType": "Market",
