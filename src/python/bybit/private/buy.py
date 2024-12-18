@@ -98,6 +98,7 @@ if market_data.get("retCode") != 0:
 last_price = 0.0
 if "result" in market_data and "list" in market_data["result"] and len(market_data["result"]["list"]) > 0:
     last_price = float(market_data["result"]["list"][0]["lastPrice"])
+    print(f"Last price: {last_price}")
 else:
     print("Could not fetch last price for XRPUSDT.")
     exit()
