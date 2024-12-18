@@ -12,14 +12,17 @@
 	# Set this path to your site's directory.
 	root * /home/pablo/CRYPTO-Trader/src/view
 
+	#/home/g1pablo_escaida1/CRYPTO-Trader/src/view
+
+
 	# Enable the static file server.
 	file_server {
 		precompressed br gzip
 	}
 
-        header {
-            Vary Accept-Encoding
-        }
+	header {
+      Vary Accept-Encoding
+    }
 
 	# Another common task is to set up a reverse proxy:
 	# reverse_proxy localhost:8080
