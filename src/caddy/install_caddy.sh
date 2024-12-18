@@ -11,5 +11,6 @@ sudo apt install caddy -y
 sudo systemctl start caddy
 sudo systemctl enable caddy
 
-
+echo " "
 echo "please edit: /etc/caddy/Caddyfile with sudo nano"
+echo "you have a sample file"
