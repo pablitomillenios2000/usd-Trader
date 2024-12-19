@@ -1,14 +1,29 @@
-:80 {
-    root * /home/g1pablo_escaida1/CRYPTO-Trader/src/view
 
-    # Serve only .txt.br and .js.br files specifically
-    @compressedFiles {
-        path_regexp compressedFiles \.(txt|js)\.br$
+:80 {
+	# Set this path to your site's directory.
+	root * /home/g1pablo_escaida1/CRYPTO-Trader/src/view
+
+	# Enable the static file server.
+	file_server {
+		precompressed br gzip
+	}
+
+    # Ensure proper headers are set.
+    header {
+        Vary Accept-Encoding
     }
 
-    # Serve the matched files
-    file_server @compressedFiles
+    # Serve .js.br files explicitly with proper Content-Encoding.
+    @brotli_js {
+        path *.js.br
+    }
+    rewrite @brotli_js {path}.br
+    header @brotli_js {
+        Content-Encoding br
+        Content-Type application/javascript
+    }
 
-    # Serve all other files and enable directory listing
-    file_server browse
 }
+
+# Refer to the Caddy docs for more information:
+# https://caddyserver.com/docs/caddyfile

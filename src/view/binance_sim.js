@@ -20,7 +20,7 @@ function plotData() {
     const loadAsset = true;     // Set to false to skip loading asset.txt
 
     // Set the slope display interval
-    const slopeDisplayInterval = 5; // 0 = skip slopes
+    const slopeDisplayInterval = 0; // 0 = skip slopes
 
     // Variable to control logarithmic scale for portfolio value
     const logarithmic = true; // Set to false for linear scale
