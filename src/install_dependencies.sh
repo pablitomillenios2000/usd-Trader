@@ -14,3 +14,5 @@ pip install brotli
 pip install --upgrade urllib3 six bravado bravado-core
 
 sudo apt install caddy
+
+sudo apt-get install beep

@@ -25,6 +25,8 @@ os.system("python3 ./compute_unt_portfolio.py")
 os.system("python3 ./compute_final_portfolio.py")
 os.system("bash ./compress_all.sh")
 
+#os.system("beep")
+
 # Stop the timer
 end_time = time.time()
 
