@@ -1,35 +1,14 @@
-# The Caddyfile is an easy way to configure your Caddy web server.
-#
-# Unless the file starts with a global options block, the first
-# uncommented line is always the address of your site.
-#
-# To use your own domain name (with automatic HTTPS), first make
-# sure your domain's A/AAAA DNS records are properly pointed to
-# this machine's public IP, then replace ":80" below with your
-# domain name.
-
 :80 {
-	# Set this path to your site's directory.
-	root * /home/pablo/CRYPTO-Trader/src/view
+    root * /home/g1pablo_escaida1/CRYPTO-Trader/src/view
 
-	#/home/g1pablo_escaida1/CRYPTO-Trader/src/view
-
-
-	# Enable the static file server.
-	file_server {
-		precompressed br gzip
-	}
-
-	header {
-      Vary Accept-Encoding
+    # Serve only .txt.br and .js.br files specifically
+    @compressedFiles {
+        path_regexp compressedFiles \.(txt|js)\.br$
     }
 
-	# Another common task is to set up a reverse proxy:
-	# reverse_proxy localhost:8080
+    # Serve the matched files
+    file_server @compressedFiles
 
-	# Or serve a PHP site through php-fpm:
-	# php_fastcgi localhost:9000
+    # Serve all other files and enable directory listing
+    file_server browse
 }
-
-# Refer to the Caddy docs for more information:
-# https://caddyserver.com/docs/caddyfi
