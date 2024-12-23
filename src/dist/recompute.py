@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import time
+import subprocess
 import os
 
 # Start the timer
 start_time = time.time()
+
+command = ["sudo", "cp", "-r", "../view/*", "/usr/share/caddy"]
 
 # Remove all .txt files
 # os.system("rm ../view/output/*.txt")
@@ -25,6 +28,12 @@ os.system("python3 ./compute_unt_portfolio.py")
 os.system("python3 ./compute_final_portfolio.py")
 os.system("bash ./compress_all.sh")
 
+# Execute the command
+try:
+    subprocess.run("sudo cp -r ../view/* /usr/share/caddy", shell=True, check=True)
+    print("Files copied successfully!")
+except subprocess.CalledProcessError as e:
+    print(f"Error occurred: {e}")
 #os.system("beep")
 
 # Stop the timer
