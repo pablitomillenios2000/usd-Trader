@@ -1,3 +1,9 @@
+# Distributor ID: Ubuntu
+# Description:    Ubuntu 24.04.1 LTS
+# Release:        24.04
+# Codename:       noble
+
+
 sudo apt update
 sudo apt install python3-pip -y
 sudo apt install jq -y
