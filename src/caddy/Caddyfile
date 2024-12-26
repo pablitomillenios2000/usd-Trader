@@ -1,7 +1,7 @@
 
 :80 {
 	# Set this path to your site's directory.
-	root * /home/g1pablo_escaida1/CRYPTO-Trader/src/view
+	root * /usr/share/caddy
 
 	# Enable the static file server.
 	file_server {
