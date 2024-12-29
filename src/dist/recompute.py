@@ -9,6 +9,7 @@ start_time = time.time()
 
 command = ["sudo", "cp", "-r", "../view/*", "/usr/share/caddy"]
 
+
 # Remove all .txt files
 # os.system("rm ../view/output/*.txt")
 # dont do this because you need the last_timestamp.txt

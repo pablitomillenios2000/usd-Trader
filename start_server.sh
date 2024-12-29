@@ -22,22 +22,6 @@ echo ""
 echo "Please double-check the .json file to be sure"
 echo ""
 
-# Define the port
-PORT=8000
-
-# Check if the port is already in use
-if lsof -i :$PORT > /dev/null; then
-    echo "Server is already running on port $PORT."
-else
-    echo "Starting server on port $PORT..."
-    echo "starting the web server and disowning it from the terminal"
-    cd src/view
-    python3 ./brotli_server.py > /dev/null 2>&1 &
-    ps aux | grep "python3 ./brotli_server.py"
-    disown $(ps aux | grep "[p]ython3 ./brotli_server.py" | awk '{print $2}')
-    cd ../../
-    echo "Server started successfully."
-fi
 
 echo ""
 echo "starting the permanent data fetcher"
@@ -70,7 +54,7 @@ nohup ./bucle.py > ../start_protocol/bucle.log 2>&1 &
 
 echo ""
 
-python3 ./recompute.py
+sudo python3 ./recompute.py
 
 echo ""
 
