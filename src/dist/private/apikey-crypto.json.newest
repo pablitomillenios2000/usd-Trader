@@ -10,7 +10,7 @@
     "sl_percentage": 1.5,
     "input_file": "../assets/suiusdc-realtime.csv",
     "start_date": "1900-01-01", //"2021-01-01",
-    "end_date": "2090-08-10", //"2021-08-20",
+    "end_date": "2090-08-10", //"2021-11-20",
     "ema_days": 1800,
     "ema_days_micro": 200,
     "min_positive_slope": -99
