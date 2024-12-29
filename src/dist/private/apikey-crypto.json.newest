@@ -3,6 +3,7 @@
     "secret": "",
     "pair":"SUIUSDC",
     "exchange":"Binance",
+    "general_sl":20,
     "margin_annual_interest_percentage": 6.12,
     "trade_fee_percentage": 0.1,
     "investment": 700,
