@@ -5,7 +5,7 @@
     "exchange":"Binance",
     "margin_annual_interest_percentage": 6.12,
     "trade_fee_percentage": 0.1,
-    "investment": 5000,
+    "investment": 700,
     "margin": 4, //4x margin
     "sl_percentage": 1.5,
     "input_file": "../assets/suiusdc-realtime.csv",
