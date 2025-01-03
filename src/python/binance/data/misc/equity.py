@@ -21,6 +21,20 @@ BASE_URL = 'https://api.binance.com'
 debug_mode = True  # Enable debug mode
 
 
+# Get SUI price in USDC
+def get_sui_price():
+    try:
+        response = requests.get(f'{BASE_URL}/api/v3/ticker/price', params={'symbol': 'SUIUSDC'})
+        if response.status_code == 200:
+            price_data = response.json()
+            return float(price_data.get("price", 0))
+        else:
+            print(f"Error fetching SUI/USDC price: {response.status_code}, {response.text}")
+            return 0
+    except Exception as e:
+        print(f"An error occurred while fetching SUI price: {e}")
+        return 0
+
 
 # Get margin account info
 def get_margin_account_info():
@@ -37,11 +51,7 @@ def get_margin_account_info():
             # Debug output: Print all margin account info
             if debug_mode:
                 print("\nDEBUG: Full Margin Account Info (Filtered for SUI and USDC):")
-                #print(json.dumps(account_info, indent=4))
-
-                # Filter assets for SUI and USDC
                 filtered_assets = [asset for asset in account_info.get("userAssets", []) if asset["asset"] in ["SUI", "USDC"]]
-
                 print("\nDEBUG: Filtered Assets (SUI and USDC):")
                 print(json.dumps(filtered_assets, indent=4))
 
@@ -54,18 +64,19 @@ def get_margin_account_info():
         return None
 
 
-# Calculate equity using USDC netAsset
-def calculate_equity_from_usdc(margin_account_info):
+# Calculate equity using netAsset of USDC and SUI
+def calculate_equity(margin_account_info, sui_price):
     try:
         user_assets = margin_account_info.get("userAssets", [])
         usdc_asset = next((asset for asset in user_assets if asset["asset"] == "USDC"), None)
+        sui_asset = next((asset for asset in user_assets if asset["asset"] == "SUI"), None)
 
-        if usdc_asset:
-            net_asset_usdc = float(usdc_asset.get("netAsset", 0))
-            return math.floor(net_asset_usdc)
-        else:
-            print("USDC asset not found in margin account.")
-            return None
+        net_asset_usdc = float(usdc_asset.get("netAsset", 0)) if usdc_asset else 0
+        net_asset_sui = float(sui_asset.get("netAsset", 0)) if sui_asset else 0
+
+        # Calculate total equity
+        total_equity = net_asset_usdc + (net_asset_sui * sui_price)
+        return math.floor(total_equity)
     except Exception as e:
         print(f"An error occurred while calculating equity: {e}")
         return None
@@ -82,10 +93,11 @@ def log_equity_to_file(equity):
 
 
 # Main execution
+sui_price = get_sui_price()
 margin_account_info = get_margin_account_info()
 
 if margin_account_info:
-    total_equity = calculate_equity_from_usdc(margin_account_info)
+    total_equity = calculate_equity(margin_account_info, sui_price)
     if total_equity is not None:
         print(f"Total Equity (USDC): {total_equity}")
         log_equity_to_file(total_equity)
