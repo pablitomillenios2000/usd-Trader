@@ -14,7 +14,6 @@ from binance.exceptions import BinanceAPIException, BinanceRequestException
 
 BASE_URL = 'https://api.binance.com'
 
-
 # ------------------- HELPER FUNCTIONS ------------------- #
 def parse_pair(pair: str):
     """
@@ -83,24 +82,6 @@ def get_margin_account_info(api_key, secret_key, base_symbol, quote_symbol, debu
         print(f"[ERROR] An error occurred in get_margin_account_info: {e}")
         return None
 
-def calculate_equity(account_info, base_symbol, quote_symbol, base_price):
-    """
-    Calculate total equity in quote_symbol = USDC:
-       netAsset(quote_symbol) + netAsset(base_symbol)*base_price
-    """
-    try:
-        user_assets = account_info.get("userAssets", [])
-        quote_asset_info = next((a for a in user_assets if a["asset"] == quote_symbol), None)
-        base_asset_info  = next((a for a in user_assets if a["asset"] == base_symbol), None)
-
-        net_quote = float(quote_asset_info.get("netAsset", 0)) if quote_asset_info else 0
-        net_base  = float(base_asset_info.get("netAsset", 0)) if base_asset_info else 0
-        total_equity = net_quote + (net_base * base_price)
-        return math.floor(total_equity)  # floor for consistency
-    except Exception as e:
-        print(f"[ERROR] calculate_equity: {e}")
-        return 0
-
 def sync_server_time(client):
     """Sync local system time with Binance server to avoid timestamp errors."""
     try:
@@ -143,6 +124,7 @@ def place_order_with_retry(client, trading_pair, order_size, max_retries=3):
             raise
 
     raise Exception("Failed to place order after several timestamp errors.")
+
 
 # ------------------- MAIN SCRIPT ------------------- #
 def main():
@@ -188,9 +170,27 @@ def main():
         if base_quote_price <= 0:
             print("[WARNING] Could not get price. Equity calc may be inaccurate.")
 
-        # 6) Calculate total equity in QUOTE
-        total_equity_quote = calculate_equity(account_info, base_symbol, quote_symbol, base_quote_price)
-        print(f"[INFO] Total equity in {quote_symbol} (floored): {total_equity_quote}")
+        # ------------------------------------------------------------
+        # 6) Calculate total equity in QUOTE 
+        #    - If account_shared_x == 1 => only use netAsset(USDC)
+        #    - Else => netAsset(USDC) + netAsset(BASE)*price
+        # ------------------------------------------------------------
+        user_assets = account_info.get("userAssets", [])
+        quote_asset_info = next((a for a in user_assets if a["asset"] == quote_symbol), None)
+        base_asset_info  = next((a for a in user_assets if a["asset"] == base_symbol), None)
+
+        net_quote = float(quote_asset_info.get("netAsset", 0)) if quote_asset_info else 0.0
+        net_base  = float(base_asset_info.get("netAsset", 0))  if base_asset_info  else 0.0
+
+        if account_shared_x == 1:
+            # Use only USDC
+            total_equity_quote = math.floor(net_quote)
+            print(f"[INFO] account_shared_x=1 => Using ONLY net USDC = {total_equity_quote}")
+        else:
+            # Old logic: base + quote
+            total_equity_quote = math.floor(net_quote + (net_base * base_quote_price))
+            print(f"[INFO] account_shared_x={account_shared_x} => Using net_quote + (net_base*price) = {total_equity_quote}")
+
         if total_equity_quote <= 0:
             raise Exception("Total equity is 0 or negative. Stopping.")
 

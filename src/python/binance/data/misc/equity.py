@@ -1,103 +1,104 @@
+#!/usr/bin/env python3
+
 import requests
 import time
 import hmac
 import hashlib
 import json5
 import json
-import math
 from pathlib import Path
 
-# Load API keys and margin level from JSON5 file
+# ------------------------------------------------------------------------------
+# 1. LOAD API KEYS AND PAIR FROM JSON5
+# ------------------------------------------------------------------------------
 home_dir = Path.home()
 with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-crypto.json", "r") as file:
     config = json5.load(file)
 
 API_KEY = config.get("key")
 SECRET_KEY = config.get("secret")
-MARGIN_LEVEL = float(config.get("margin", 1))  # Default to 1 if margin is not set
 
-equity_filename = "../../../view/output/equity.txt"
+# Example: if the JSON has "pair": "HBARUSDC"
+# We'll parse that down to "HBAR" as the base token.
+full_pair = config.get("pair", "HBARUSDC")
+
 BASE_URL = 'https://api.binance.com'
-debug_mode = True  # Enable debug mode
 
+# ------------------------------------------------------------------------------
+# 2. PARSE THE BASE TOKEN FROM THE PAIR
+# ------------------------------------------------------------------------------
+def parse_base_token(pair_str):
+    """
+    If pair_str is like 'HBARUSDC', strip 'USDC' -> 'HBAR'.
+    If the pair doesn't end with 'USDC', you can adapt the logic.
+    """
+    pair_str = pair_str.upper()
+    if pair_str.endswith("USDC"):
+        # remove trailing "USDC" -> "HBAR"
+        return pair_str[:-4]
+    # fallback if format is different
+    return pair_str
 
-# Get SUI price in USDC
-def get_sui_price():
-    try:
-        response = requests.get(f'{BASE_URL}/api/v3/ticker/price', params={'symbol': 'SUIUSDC'})
-        if response.status_code == 200:
-            price_data = response.json()
-            return float(price_data.get("price", 0))
-        else:
-            print(f"Error fetching SUI/USDC price: {response.status_code}, {response.text}")
-            return 0
-    except Exception as e:
-        print(f"An error occurred while fetching SUI price: {e}")
-        return 0
+# Extract base token from the pair (e.g. "HBARUSDC" -> "HBAR")
+base_token = parse_base_token(full_pair)
 
+# ------------------------------------------------------------------------------
+# 3. SIGNING HELPER FOR BINANCE
+# ------------------------------------------------------------------------------
+def sign_query(query: str) -> str:
+    return hmac.new(SECRET_KEY.encode(), query.encode(), hashlib.sha256).hexdigest()
 
-# Get margin account info
-def get_margin_account_info():
+# ------------------------------------------------------------------------------
+# 4. GET CROSS MARGIN ACCOUNT INFO
+# ------------------------------------------------------------------------------
+def get_cross_margin_account_info():
+    """
+    Fetch cross margin account info which shows net assets for each coin.
+    """
     try:
         timestamp = int(time.time() * 1000)
-        query_string = f'timestamp={timestamp}'
-        signature = hmac.new(SECRET_KEY.encode(), query_string.encode(), hashlib.sha256).hexdigest()
-        query_string += f'&signature={signature}'
-        headers = {'X-MBX-APIKEY': API_KEY}
-        response = requests.get(f'{BASE_URL}/sapi/v1/margin/account', headers=headers, params=query_string)
-        if response.status_code == 200:
-            account_info = response.json()
+        query_string = f"timestamp={timestamp}"
+        signature = sign_query(query_string)
+        query_string += f"&signature={signature}"
 
-            # Debug output: Print all margin account info
-            if debug_mode:
-                print("\nDEBUG: Full Margin Account Info (Filtered for SUI and USDC):")
-                filtered_assets = [asset for asset in account_info.get("userAssets", []) if asset["asset"] in ["SUI", "USDC"]]
-                print("\nDEBUG: Filtered Assets (SUI and USDC):")
-                print(json.dumps(filtered_assets, indent=4))
+        headers = {"X-MBX-APIKEY": API_KEY}
+        url = f"{BASE_URL}/sapi/v1/margin/account"
+        resp = requests.get(url, headers=headers, params=query_string)
 
-            return account_info
+        if resp.status_code == 200:
+            return resp.json()
         else:
-            print(f"Error: {response.status_code}, {response.text}")
+            print(f"Error (cross margin): {resp.status_code}, {resp.text}")
             return None
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"Error fetching cross margin info: {e}")
         return None
 
+# ------------------------------------------------------------------------------
+# 5. MAIN EXECUTION
+# ------------------------------------------------------------------------------
+def main():
+    account_info = get_cross_margin_account_info()
+    if not account_info:
+        print("Unable to retrieve cross margin account info.")
+        return
 
-# Calculate equity using netAsset of USDC and SUI
-def calculate_equity(margin_account_info, sui_price):
-    try:
-        user_assets = margin_account_info.get("userAssets", [])
-        usdc_asset = next((asset for asset in user_assets if asset["asset"] == "USDC"), None)
-        sui_asset = next((asset for asset in user_assets if asset["asset"] == "SUI"), None)
+    # The cross margin info is under account_info["userAssets"], which is a list
+    user_assets = account_info.get("userAssets", [])
 
-        net_asset_usdc = float(usdc_asset.get("netAsset", 0)) if usdc_asset else 0
-        net_asset_sui = float(sui_asset.get("netAsset", 0)) if sui_asset else 0
+    # We want to filter for base token (e.g., "HBAR") + "USDC"
+    # e.g., if base_token="HBAR", we want to see "HBAR" and "USDC"
+    relevant_assets = [
+        asset for asset in user_assets
+        if asset["asset"] in [base_token.upper(), "USDC"]
+    ]
 
-        # Calculate total equity
-        total_equity = net_asset_usdc + (net_asset_sui * sui_price)
-        return math.floor(total_equity)
-    except Exception as e:
-        print(f"An error occurred while calculating equity: {e}")
-        return None
+    # Print the filtered information in JSON format
+    print("\nFull Information for the Base Token and USDC:")
+    print(json.dumps(relevant_assets, indent=4))
 
-
-# Log equity to file
-def log_equity_to_file(equity):
-    try:
-        timestamp = int(time.time())
-        with open(equity_filename, "a") as file:
-            file.write(f"{timestamp},{equity}\n")
-    except Exception as e:
-        print(f"An error occurred while writing to the file: {e}")
-
-
-# Main execution
-sui_price = get_sui_price()
-margin_account_info = get_margin_account_info()
-
-if margin_account_info:
-    total_equity = calculate_equity(margin_account_info, sui_price)
-    if total_equity is not None:
-        print(f"Total Equity (USDC): {total_equity}")
-        log_equity_to_file(total_equity)
+# ------------------------------------------------------------------------------
+# 6. EXECUTE MAIN IF RUN DIRECTLY
+# ------------------------------------------------------------------------------
+if __name__ == "__main__":
+    main()
