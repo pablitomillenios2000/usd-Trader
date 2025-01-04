@@ -7,29 +7,53 @@ import json5
 import json
 from pathlib import Path
 import sys
-import math
-from binance.client import Client
-from binance.exceptions import BinanceAPIException, BinanceRequestException
 import datetime
 
-# -------------- NEW HELPER FUNCTIONS START --------------
+from binance.client import Client
+from binance.exceptions import BinanceAPIException, BinanceRequestException
+
 BASE_URL = 'https://api.binance.com'
-def get_sui_price():
+
+
+def parse_pair(pair: str):
     """
-    Fetches the SUI/USDC price from Binance.
+    Given a trading pair like 'SUIUSDC' or 'HBARUSDC',
+    return (base_symbol, quote_symbol).
+    Assumes the quote currency is always 'USDC'.
+    """
+    if not pair.endswith("USDC"):
+        raise ValueError(
+            f"Unexpected pair format '{pair}'. Expected to end with 'USDC'."
+        )
+    base_symbol = pair[:-4]  # everything before the last 4 chars
+    quote_symbol = "USDC"
+    return base_symbol, quote_symbol
+
+
+def get_price_from_binance(pair: str):
+    """
+    Fetches the price for the specified pair, e.g. 'SUIUSDC', 'HBARUSDC'.
+    Returns a float price (base in terms of quote).
     """
     try:
-        response = requests.get(f'{BASE_URL}/api/v3/ticker/price', params={'symbol': 'SUIUSDC'})
+        response = requests.get(
+            f'{BASE_URL}/api/v3/ticker/price',
+            params={'symbol': pair}
+        )
         response.raise_for_status()
         price_data = response.json()
         return float(price_data.get("price", 0))
     except Exception as e:
-        print(f"[ERROR] An error occurred while fetching SUI price: {e}")
+        print(f"[ERROR] An error occurred while fetching price for {pair}: {e}")
         return 0.0
 
-def get_margin_account_info(api_key, secret_key, debug=False):
+
+def get_margin_account_info(
+    api_key, secret_key, base_symbol, quote_symbol, debug=False
+):
     """
-    Fetch margin account info (similar to your equity script).
+    Fetch margin account info, but only print relevant assets
+    (base_symbol and quote_symbol) if debug=True.
     """
     try:
         timestamp = int(time.time() * 1000)
@@ -51,11 +75,15 @@ def get_margin_account_info(api_key, secret_key, debug=False):
 
         account_info = response.json()
         if debug:
-            # Print only relevant assets for debugging
             user_assets = account_info.get("userAssets", [])
-            filtered = [x for x in user_assets if x["asset"] in ["USDC", "SUI"]]
-            print("\n[DEBUG] Filtered Margin Assets (SUI and USDC):")
-            print(json.dumps(filtered, indent=4))
+            # Filter out only the base_symbol and quote_symbol
+            relevant_assets = [
+                x
+                for x in user_assets
+                if x["asset"] in [base_symbol, quote_symbol]
+            ]
+            print("\n[DEBUG] Margin Assets (base/quote only):")
+            print(json.dumps(relevant_assets, indent=4))
 
         return account_info
 
@@ -64,28 +92,32 @@ def get_margin_account_info(api_key, secret_key, debug=False):
         return None
 
 
-def calculate_equity(margin_account_info, sui_price):
+def calculate_equity(margin_account_info, base_symbol, quote_symbol, base_price):
     """
-    Calculates total equity (in USDC) = USDC netAsset + (SUI netAsset * SUI price in USDC).
+    Calculates total equity (in quote_symbol = USDC):
+      = netAsset(quote_symbol) + (netAsset(base_symbol) * base_price).
     """
     try:
         user_assets = margin_account_info.get("userAssets", [])
-        usdc_asset = next((a for a in user_assets if a["asset"] == "USDC"), None)
-        sui_asset  = next((a for a in user_assets if a["asset"] == "SUI"),  None)
+        quote_asset_info = next(
+            (a for a in user_assets if a["asset"] == quote_symbol), None
+        )
+        base_asset_info = next(
+            (a for a in user_assets if a["asset"] == base_symbol), None
+        )
 
-        net_asset_usdc = float(usdc_asset.get("netAsset", 0)) if usdc_asset else 0
-        net_asset_sui  = float(sui_asset.get("netAsset",  0)) if sui_asset  else 0
+        net_asset_quote = float(quote_asset_info.get("netAsset", 0)) \
+            if quote_asset_info else 0
+        net_asset_base = float(base_asset_info.get("netAsset", 0)) \
+            if base_asset_info else 0
 
-        # total in USDC
-        total_equity = net_asset_usdc + (net_asset_sui * sui_price)
-
+        total_equity = net_asset_quote + (net_asset_base * base_price)
         # floor to integer as per your equity script logic
         return math.floor(total_equity)
-
     except Exception as e:
         print(f"[ERROR] An error occurred while calculating equity: {e}")
         return 0
-# -------------- NEW HELPER FUNCTIONS END --------------
+
 
 def sync_server_time(client):
     """
@@ -104,11 +136,15 @@ def sync_server_time(client):
         local_time_dt = datetime.datetime.fromtimestamp(local_time / 1000.0)
         offset_seconds = time_offset / 1000.0
 
-        print(f"[Time Sync] Server Time: {server_time_dt} | Local Time: {local_time_dt} | Offset: {offset_seconds} seconds")
+        print(
+            f"[Time Sync] Server Time: {server_time_dt} | "
+            f"Local Time: {local_time_dt} | Offset: {offset_seconds} seconds"
+        )
 
     except Exception as e:
         print(f"Failed to synchronize time: {e}")
         raise
+
 
 def place_order_with_retry(client, trading_pair, order_size, max_retries=3):
     """
@@ -125,11 +161,17 @@ def place_order_with_retry(client, trading_pair, order_size, max_retries=3):
             return order
         except BinanceAPIException as e:
             if e.code == -1021:  # Timestamp error
-                print(f"Attempt {attempt}: Timestamp error detected. Resynchronizing time...")
+                print(
+                    f"Attempt {attempt}: Timestamp error detected. "
+                    "Resynchronizing time..."
+                )
                 sync_server_time(client)
                 time.sleep(2)
             else:
-                print(f"Binance API Exception on attempt {attempt}: {e.message} (Code: {e.code})")
+                print(
+                    f"Binance API Exception on attempt {attempt}: "
+                    f"{e.message} (Code: {e.code})"
+                )
                 raise
         except BinanceRequestException as e:
             print(f"Binance Request Exception on attempt {attempt}: {e}")
@@ -137,7 +179,9 @@ def place_order_with_retry(client, trading_pair, order_size, max_retries=3):
         except Exception as e:
             print(f"General Exception on attempt {attempt}: {e}")
             raise
-    raise Exception("Failed to place order after multiple retries due to timestamp issues.")
+    raise Exception(
+        "Failed to place order after multiple retries due to timestamp issues."
+    )
 
 
 def main():
@@ -145,12 +189,14 @@ def main():
     home_dir = Path.home()
     try:
         # Step 1: Read API keys and config
-        with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-crypto.json", "r") as file:
+        with open(
+            f"{home_dir}/CRYPTO-Trader/src/dist/apikey-crypto.json", "r"
+        ) as file:
             api_keys = json5.load(file)
 
         api_key = api_keys.get('key')
         api_secret = api_keys.get('secret')
-        trading_pair = api_keys.get('pair')
+        trading_pair = api_keys.get('pair')  # e.g. "SUIUSDC" or "HBARUSDC"
         leverage_strength = float(api_keys.get('margin', 1))  # default 1 if not provided
 
         # The 'account_shared_x' parameter: how many strategies share this total equity
@@ -162,37 +208,49 @@ def main():
         except ValueError:
             account_shared_x = 1
 
-        if not all([api_key, api_secret, trading_pair]):
-            raise ValueError("API key, secret, or trading pair not found in the configuration file.")
+        # Parameter for how many orders to split into
+        number_sim_orders_str = api_keys.get('number_sim_orders', None)  # e.g. 2
+        number_sim_orders = int(number_sim_orders_str) if number_sim_orders_str else 2
 
-        # Step 2: Create Binance Client
+        if not all([api_key, api_secret, trading_pair]):
+            raise ValueError(
+                "API key, secret, or trading pair not found in the configuration file."
+            )
+
+        # Step 2: Parse the pair to figure out base and quote
+        base_symbol, quote_symbol = parse_pair(trading_pair)
+        print(f"[INFO] Detected base symbol:  {base_symbol}")
+        print(f"[INFO] Detected quote symbol: {quote_symbol}")
+
+        # Step 3: Create Binance Client
         client = Client(api_key, api_secret)
 
-        # Step 3: Sync time
+        # Step 4: Sync time
         sync_server_time(client)
 
-        # -----------------------------------------------------------
-        # (A) Get total equity in USDC terms (like your equity script)
-        # -----------------------------------------------------------
-        # 1) Fetch margin account info
-        margin_info_raw = get_margin_account_info(api_key, api_secret, debug=True)
+        # Step 5: Fetch margin account info (only base/quote are printed if debug=True)
+        margin_info_raw = get_margin_account_info(
+            api_key, api_secret, base_symbol, quote_symbol, debug=True
+        )
         if not margin_info_raw:
             raise Exception("Could not fetch margin account info. Exiting.")
 
-        # 2) Fetch SUI price in USDC
-        sui_price_in_usdc = get_sui_price()
-        if sui_price_in_usdc <= 0:
-            print("[WARNING] SUI price could not be fetched or is zero. Equity might be incomplete.")
+        # Step 6: Fetch price of base_symbol in quote_symbol from Binance
+        base_in_quote_price = get_price_from_binance(trading_pair)
+        if base_in_quote_price <= 0:
+            print("[WARNING] Price could not be fetched or is zero. "
+                  "Equity calculation may be incorrect.")
 
-        # 3) Calculate total equity in USDC
-        total_equity_usdc = calculate_equity(margin_info_raw, sui_price_in_usdc)
+        # Step 7: Calculate total equity in quote_symbol (USDC)
+        total_equity_usdc = calculate_equity(
+            margin_info_raw, base_symbol, quote_symbol, base_in_quote_price
+        )
         if total_equity_usdc <= 0:
-            raise Exception("Total equity (USDC + SUI) is zero or negative. Cannot proceed.")
+            raise Exception("Total equity is zero or negative. Cannot proceed.")
 
-        # Step 4: The portion for this specific strategy
-        #    => floor-divide the total equity by 'account_shared_x'
+        # Step 8: The portion for this specific strategy
         portion_equity = math.floor(total_equity_usdc / account_shared_x)
-        print(f"[INFO] Overall total equity (USDC + SUI): {total_equity_usdc}")
+        print(f"[INFO] Overall total equity (in {quote_symbol}): {total_equity_usdc}")
         print(f"[INFO] Shared divisor (account_shared_x): {account_shared_x}")
         print(f"[INFO] Portion equity for {trading_pair}: {portion_equity}")
 
@@ -202,63 +260,73 @@ def main():
                 "Check 'account_shared_x' or your margin account."
             )
 
-        # -------------------------------------------------------
-        # (B) Borrow logic: You want to multiply portion_equity by
-        #     your leverage_strength to see if you should borrow more
-        # -------------------------------------------------------
+        # (B) Borrow logic: Multiply portion_equity by leverage_strength
         target_balance = portion_equity * leverage_strength
         # Borrow only if target is > portion_equity
         borrow_amount = target_balance - portion_equity
         borrow_amount = max(borrow_amount, 0)
 
-        # Step 5: Check the maximum borrowable and borrow if needed
+        # Step 9: Check the maximum borrowable and borrow if needed
         try:
-            max_borrowable_info = client.get_max_margin_loan(asset='USDC')
+            max_borrowable_info = client.get_max_margin_loan(asset=quote_symbol)
             max_borrowable = float(max_borrowable_info.get('amount', 0.0))
         except Exception as e:
             print("[ERROR] Could not fetch max borrowable info.")
             raise
 
         if borrow_amount > max_borrowable:
-            print("[WARNING] Borrow amount exceeds maximum borrowable. Falling back to no borrow.")
-            print(f"Requested Borrow: {borrow_amount:.2f}, Max Borrowable: {max_borrowable:.2f}")
+            print("[WARNING] Borrow amount exceeds maximum borrowable. "
+                  "Falling back to no borrow.")
+            print(f"Requested Borrow: {borrow_amount:.2f}, "
+                  f"Max Borrowable: {max_borrowable:.2f}")
             borrow_amount = 0
 
         if borrow_amount > 0:
             # floor the borrow amount
             borrow_amount = math.floor(borrow_amount)
             try:
-                client.create_margin_loan(asset='USDC', amount=borrow_amount)
-                print(f"[INFO] Successfully borrowed {borrow_amount} USDC.")
+                client.create_margin_loan(asset=quote_symbol, amount=borrow_amount)
+                print(f"[INFO] Successfully borrowed {borrow_amount} {quote_symbol}.")
             except BinanceAPIException as e:
-                print(f"[ERROR] Failed to borrow USDC: {e.message} (Code: {e.code})")
+                print(
+                    f"[ERROR] Failed to borrow {quote_symbol}: "
+                    f"{e.message} (Code: {e.code})"
+                )
                 raise
 
-        # Now total USDC we can spend = portion_equity + borrowed
-        total_usdc_for_order = math.floor(portion_equity + borrow_amount)
-        num_orders = 2  # example: dividing the buy into multiple orders
-        order_size = math.floor(total_usdc_for_order / num_orders)
+        # Now total we can spend in quote_symbol
+        total_quote_for_order = math.floor(portion_equity + borrow_amount)
+
+        # Use number_sim_orders from the config
+        num_orders = number_sim_orders
+        order_size = math.floor(total_quote_for_order / num_orders)
 
         if order_size <= 0:
             raise Exception("Calculated order size is too small to execute (<= 0).")
 
         print("[INFO] Order Parameters:")
-        print(f"  - Symbol:         {trading_pair}")
-        print(f"  - Side:           BUY")
-        print(f"  - Type:           MARKET")
+        print(f"  - Symbol:           {trading_pair}")
+        print(f"  - Side:             BUY")
+        print(f"  - Type:             MARKET")
         print(f"  - Number of Orders: {num_orders}")
-        print(f"  - Each Order Size:  {order_size} USDC")
+        print(f"  - Each Order Size:  {order_size} {quote_symbol}")
 
-        # Step 6: Execute each margin market buy order
+        # Step 10: Execute each margin market buy order
         for i in range(1, num_orders + 1):
             try:
-                print(f"Placing order {i}/{num_orders} for {order_size} USDC...")
+                print(f"Placing order {i}/{num_orders} for {order_size} {quote_symbol}...")
                 order = place_order_with_retry(client, trading_pair, order_size)
-                print(f"Order {i} executed successfully. Order ID: {order.get('orderId')}")
+                print(
+                    f"Order {i} executed successfully. "
+                    f"Order ID: {order.get('orderId')}"
+                )
                 # small delay to respect rate limits
                 time.sleep(1)
             except BinanceAPIException as e:
-                print(f"[ERROR] Binance API Exception on order {i}: {e.message} (Code: {e.code})")
+                print(
+                    f"[ERROR] Binance API Exception on order {i}: "
+                    f"{e.message} (Code: {e.code})"
+                )
                 break
             except BinanceRequestException as e:
                 print(f"[ERROR] Binance Request Exception on order {i}: {e}")
@@ -274,6 +342,7 @@ def main():
     except Exception as e:
         print(f"[ERROR] General Exception: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
