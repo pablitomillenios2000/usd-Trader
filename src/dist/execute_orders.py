@@ -6,7 +6,7 @@ API_KEY_FILE = "apikey-crypto.json"
 # Load the JSON file
 with open(API_KEY_FILE, 'r') as file:
     config = json5.load(file)
-    exchange = config.get("exchange")
+    exchange = config.get("exchange").lower()
 
 def read_last_timestamp(file_path):
     """Reads the last timestamp from the given file."""
