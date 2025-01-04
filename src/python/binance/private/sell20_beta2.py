@@ -53,8 +53,7 @@ def place_order_with_retry(client, symbol, side, order_quantity, max_retries=3):
             if e.code == -1021:  # Timestamp error
                 print(f"Attempt {attempt}: Timestamp error detected. Resynchronizing time...")
                 sync_server_time(client)
-                # Adding a longer sleep to ensure time sync takes effect
-                time.sleep(2)
+                time.sleep(2)  # Adding a longer sleep to ensure time sync takes effect
             else:
                 print(f"Binance API Exception on attempt {attempt}: {e.message} (Code: {e.code})")
                 raise
@@ -85,7 +84,12 @@ try:
     sync_server_time(client)
 
     # Step 3: Extract the base asset from the trading pair
-    asset_to_sell = trading_pair[:3]
+    if trading_pair.endswith('USDC'):
+        asset_to_sell = trading_pair.replace('USDC', '')
+    else:
+        raise Exception(f"Unsupported trading pair format: {trading_pair}")
+
+    print(f"Trading Pair: {trading_pair} | Base Asset: {asset_to_sell}")
 
     # Step 4: Fetch the balance from the margin account
     margin_account_info = client.get_margin_account()
@@ -126,9 +130,6 @@ try:
         print(f"Order {i} executed successfully. Order details: {order}")
         time.sleep(1)  # small pause to respect rate limits
 
-    # Optional: Wait or re-check if orders are filled (Market orders usually fill immediately)
-    # ... (Optional code here)
-
     # Step 7: Refresh margin account info after the sell
     margin_account_info = client.get_margin_account()
 
@@ -137,7 +138,6 @@ try:
     for asset in margin_account_info['userAssets']:
         borrowed_amount = float(asset['borrowed'])
         if borrowed_amount > 0:
-            # Repay the borrowed amount
             client.repay_margin_loan(asset=asset['asset'], amount=borrowed_amount)
             print(f"Repaid {borrowed_amount} of {asset['asset']} successfully.")
             repaid_anything = True
@@ -147,7 +147,7 @@ try:
 
 except BinanceAPIException as e:
     if e.code == -1100:
-        print("ApiError -1100, character error. [Possibly invalid symbol or insufficient balance]")
+        print("API Error -1100, character error. [Possibly invalid symbol or insufficient balance]")
     else:
         print(f"Error executing Margin SELL order script: {e}")
 except Exception as e:
