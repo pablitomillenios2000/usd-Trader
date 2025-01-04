@@ -1,7 +1,7 @@
 {
     "key": "",
     "secret": "",
-    "pair":"SUIUSDC",
+    "pair":"HBARUSDC",
     "exchange":"Home",
     "number_sim_orders":2,
     "account_shared_x":"1",
