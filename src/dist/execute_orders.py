@@ -44,7 +44,7 @@ if __name__ == "__main__":
     last_timestamp_file = "../view/output/last_timestamp.txt"
     trades_file = "../view/output/trades.txt"
 
-    buy_order_file = f"../python/{exchange}/private/buy_using_20_orders.py"
+    buy_order_file = f"../python/{exchange}/private/buy20_beta2.py"
     sell_order_file = f"../python/{exchange}/private/sell_using_20_orders.py"
 
     # Read the last executed timestamp
