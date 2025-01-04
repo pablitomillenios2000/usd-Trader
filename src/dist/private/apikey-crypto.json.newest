@@ -2,7 +2,7 @@
     "key": "",
     "secret": "",
     "pair":"SUIUSDC",
-    "exchange":"Home",
+    "exchange":"Binance",
     "number_sim_orders":2,
     "account_shared_x":"1",
     "margin_annual_interest_percentage": 6.12,
