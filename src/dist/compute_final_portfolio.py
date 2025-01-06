@@ -1,3 +1,5 @@
+# Upadted Version on January 6th 2025 to reflect compound interest costs
+
 import os
 import json5
 from datetime import datetime
@@ -45,10 +47,12 @@ def accrue_interest(debt, annual_interest_rate, time_diff_seconds):
     if debt <= 0:
         return 0.0
     
-    # Convert annual interest rate to per-second rate (simple interest)
-    # annual_interest_rate is a decimal (e.g., 8% = 0.08)
+    # Convert annual interest rate to a per-second compounded rate
     seconds_per_year = 365 * 24 * 3600
-    interest_for_period = debt * annual_interest_rate * (time_diff_seconds / seconds_per_year)
+    per_second_rate = (1 + annual_interest_rate) ** (1 / seconds_per_year) - 1
+
+    # Calculate interest using compound interest formula
+    interest_for_period = debt * ((1 + per_second_rate) ** time_diff_seconds - 1)
     return interest_for_period
 
 def process_events(events, price_dict, investment, margin, annual_interest_rate, trade_fee_percentage):
@@ -87,7 +91,6 @@ def process_events(events, price_dict, investment, margin, annual_interest_rate,
                 # Buy with all available cash and maximum margin
                 total_funds = cash_balance + (cash_balance * margin)
                 # Apply trade fee: fee is on the total notional of the trade
-                # Notional = total_funds; fee = total_funds * trade_fee_percentage
                 fee = total_funds * trade_fee_percentage
                 effective_funds = total_funds - fee
 
