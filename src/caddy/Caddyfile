@@ -1,29 +1,21 @@
-
 :80 {
-	# Set this path to your site's directory.
-	root * /usr/share/caddy
+    root * /usr/share/caddy
 
-	# Enable the static file server.
-	file_server {
-		precompressed br gzip
-	}
+    # Serve files with precompressed Brotli and Gzip versions
+    file_server {
+        precompressed br gzip
+    }
 
-    # Ensure proper headers are set.
+    # Set cache headers for static assets
+    @static_assets {
+        path *.js *.css *.png *.jpg *.jpeg *.svg *.webp *.woff *.woff2
+    }
+    header @static_assets {
+        Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    # Set a generic Vary header to avoid cache issues with different encodings
     header {
         Vary Accept-Encoding
     }
-
-    # Serve .js.br files explicitly with proper Content-Encoding.
-    @brotli_js {
-        path *.js.br
-    }
-    rewrite @brotli_js {path}.br
-    header @brotli_js {
-        Content-Encoding br
-        Content-Type application/javascript
-    }
-
 }
-
-# Refer to the Caddy docs for more information:
-# https://caddyserver.com/docs/caddyfile
