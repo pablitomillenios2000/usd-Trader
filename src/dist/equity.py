@@ -12,6 +12,7 @@ from pathlib import Path
 # 1. LOAD API KEYS AND PAIR FROM JSON5
 # ------------------------------------------------------------------------------
 home_dir = Path.home()
+home_dir = '/home/g1pablo_escaida1/'
 with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-crypto.json", "r") as file:
     config = json5.load(file)
 
