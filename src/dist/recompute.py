@@ -15,6 +15,7 @@ command = ["sudo", "cp", "-r", "../view/*", "/usr/share/caddy"]
 # dont do this because you need the last_timestamp.txt
 
 # Execute the commands
+os.system("python3 ./equity.py")
 os.system("python3 ./pairname.py")
 os.system("python3 ./compute_asset.py")
 os.system("python3 ./compute_ema.py")
