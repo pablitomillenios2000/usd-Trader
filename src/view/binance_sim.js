@@ -23,7 +23,8 @@ function setTitleWithPairName() {
         .then(equityValue => {
             const trimmedEquity = equityValue.trim();
             // If you have a global or higher-scoped variable for titleContents:
-            titleContents = `PRODUCTION - ${document.title.split(' - ')[1].replace(' Data Chart', '')}. Equity $${trimmedEquity}`;
+            titleContents = `PRODUCTION - ${trimmedPairName} Equity. $${trimmedEquity}`;
+            document.title = `${trimmedPairName} -- $${trimmedEquity}`;
             // Alternatively:
             // titleContents = `PRODUCTION - ${trimmedPairName} Equity. $${trimmedEquity}`;
             // Make sure to store trimmedPairName in a parent scope if you want to re-use it here.
