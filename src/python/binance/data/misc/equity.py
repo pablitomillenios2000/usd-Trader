@@ -110,6 +110,13 @@ def main():
             net_asset_usdc = abs(float(usdc_info["netAsset"]))
             net_equity = round(net_asset_usdc / leverage)
             print(f"\nThe estimated net equity is: ${net_equity}")
+
+            # --------------------------------------------------------------
+            # NEW STEP: Overwrite the outfile with only the net_equity value
+            # --------------------------------------------------------------
+            with open(outfile, 'w') as f:
+                f.write(str(net_equity) + "\n")
+
         except (ValueError, KeyError, TypeError) as err:
             print(f"\nCould not calculate estimated net equity for USDC: {err}")
     else:
