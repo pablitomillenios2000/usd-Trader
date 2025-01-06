@@ -14,7 +14,7 @@ API_KEY = config.get("key")
 SECRET_KEY = config.get("secret")
 
 # 📥 Endpoint for account info
-url = 'https://api.mexc.com/api/v3/account'
+url = 'https://api.mexc.com/api/v3/sub-account/list'
 
 # 📅 Generate timestamp
 timestamp = int(time.time() * 1000)
