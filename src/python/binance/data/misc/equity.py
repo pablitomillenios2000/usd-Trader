@@ -17,6 +17,7 @@ with open(f"{home_dir}/CRYPTO-Trader/src/dist/apikey-crypto.json", "r") as file:
 
 API_KEY = config.get("key")
 SECRET_KEY = config.get("secret")
+leverage = config.get('margin')  # We'll use this for net equity calculation
 
 # Example: if the JSON has "pair": "HBARUSDC"
 # We'll parse that down to "HBAR" as the base token.
@@ -96,6 +97,21 @@ def main():
     # Print the filtered information in JSON format
     print("\nFull Information for the Base Token and USDC:")
     print(json.dumps(relevant_assets, indent=4))
+
+    # --------------------------------------------------------------------------
+    # ADDITIONAL: Print estimated net equity for USDC
+    # net equity = abs(netAsset(USDC)) / leverage
+    # --------------------------------------------------------------------------
+    usdc_info = next((asset for asset in relevant_assets if asset["asset"] == "USDC"), None)
+    if usdc_info:
+        try:
+            net_asset_usdc = abs(float(usdc_info["netAsset"]))
+            net_equity = round(net_asset_usdc / leverage)
+            print(f"\nThe estimated net equity is: ${net_equity}")
+        except (ValueError, KeyError, TypeError) as err:
+            print(f"\nCould not calculate estimated net equity for USDC: {err}")
+    else:
+        print("\nNo USDC asset found in the account info to calculate net equity.")
 
 # ------------------------------------------------------------------------------
 # 6. EXECUTE MAIN IF RUN DIRECTLY
