@@ -19,6 +19,8 @@ API_KEY = config.get("key")
 SECRET_KEY = config.get("secret")
 leverage = config.get('margin')  # We'll use this for net equity calculation
 
+outfile = f"{home_dir}/CRYPTO-Trader/src/view/output/equity.txt"
+
 # Example: if the JSON has "pair": "HBARUSDC"
 # We'll parse that down to "HBAR" as the base token.
 full_pair = config.get("pair", "HBARUSDC")
