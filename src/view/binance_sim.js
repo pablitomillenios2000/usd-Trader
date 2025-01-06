@@ -1,17 +1,39 @@
 let titleContents = '';
 
 function setTitleWithPairName() {
+    // First, fetch the pair name
     fetch('./output/pairname.txt?' + Math.random())
         .then(response => response.text())
         .then(pairName => {
             const trimmedPairName = pairName.trim();
+            
+            // Only proceed if pairName is not empty
             if (trimmedPairName) {
+                // Update the document title
                 document.title = `PRODUCTION - ${trimmedPairName} Data Chart`;
-                titleContents = `PRODUCTION - ${trimmedPairName} Data Chart`;
+
+                // Now fetch the equity value
+                return fetch('./output/equity.txt?' + Math.random());
+            } else {
+                // If no pair name, stop here
+                throw new Error('Pair name is empty');
             }
         })
-        .catch(error => console.error('Error fetching pair name:', error));
+        .then(response => response.text())
+        .then(equityValue => {
+            const trimmedEquity = equityValue.trim();
+            // If you have a global or higher-scoped variable for titleContents:
+            titleContents = `PRODUCTION - ${document.title.split(' - ')[1].replace(' Data Chart', '')}. Equity $${trimmedEquity}`;
+            // Alternatively:
+            // titleContents = `PRODUCTION - ${trimmedPairName} Equity. $${trimmedEquity}`;
+            // Make sure to store trimmedPairName in a parent scope if you want to re-use it here.
+        plotData();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
 }
+
 
 function plotData() {
     // Variables to skip loading certain files
@@ -468,4 +490,4 @@ document.body.innerHTML += '<div id="chart" style="width: 100%; height: 98vh;"><
 
 // Call the functions
 setTitleWithPairName();
-plotData();
+//plotData();
