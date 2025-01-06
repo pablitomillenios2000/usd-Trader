@@ -4,6 +4,7 @@ import hashlib
 import hmac
 from pathlib import Path
 import json5
+import json
 
 # Load API keys
 home_dir = Path.home()
@@ -42,7 +43,7 @@ response = requests.get(url, headers=headers, params={'timestamp': timestamp, 's
 # 📋 Print the response
 if response.status_code == 200:
     print("Account Info:")
-    print(response.json())
+    print(json.dumps(response.json(), indent=4, sort_keys=True))
 else:
     print(f"Error: {response.status_code}")
     print(response.text)
