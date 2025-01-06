@@ -1,16 +1,17 @@
 let titleContents = '';
+let trimmedPairName = '';
 
 function setTitleWithPairName() {
     // First, fetch the pair name
     fetch('./output/pairname.txt?' + Math.random())
         .then(response => response.text())
         .then(pairName => {
-            const trimmedPairName = pairName.trim();
+            trimmedPairName = pairName.trim();
             
             // Only proceed if pairName is not empty
             if (trimmedPairName) {
                 // Update the document title
-                document.title = `PRODUCTION - ${trimmedPairName} Data Chart`;
+                //document.title = `PRODUCTION - ${trimmedPairName} Data Chart`;
 
                 // Now fetch the equity value
                 return fetch('./output/equity.txt?' + Math.random());
@@ -23,7 +24,7 @@ function setTitleWithPairName() {
         .then(equityValue => {
             const trimmedEquity = equityValue.trim();
             // If you have a global or higher-scoped variable for titleContents:
-            titleContents = `PRODUCTION - ${trimmedPairName} Equity. $${trimmedEquity}`;
+            titleContents = `PRODUCTION - ${trimmedPairName} -- Equity. $${trimmedEquity}`;
             document.title = `${trimmedPairName} -- $${trimmedEquity}`;
             // Alternatively:
             // titleContents = `PRODUCTION - ${trimmedPairName} Equity. $${trimmedEquity}`;
