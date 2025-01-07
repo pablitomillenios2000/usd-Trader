@@ -47,7 +47,7 @@ function plotData() {
     const slopeDisplayInterval = 0; // 0 = skip slopes
 
     // Variable to control logarithmic scale for portfolio value
-    const logarithmic = true; // Set to false for linear scale
+    const logarithmic = false; // Set to false for linear scale
 
     // Variable to toggle display of margin data
     const showMargin = false; // Set to true to display margin data
@@ -486,9 +486,6 @@ function plotData() {
         Plotly.newPlot('chart', traces, layout, config);
     }
 }
-
-// Add a div for the chart in the DOM
-document.body.innerHTML += '<div id="chart" style="width: 100%; height: 98vh;"></div>';
 
 // Call the functions
 setTitleWithPairName();
