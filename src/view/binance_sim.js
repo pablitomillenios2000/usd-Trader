@@ -30,6 +30,7 @@ function setTitleWithPairName() {
             // titleContents = `PRODUCTION - ${trimmedPairName} Equity. $${trimmedEquity}`;
             // Make sure to store trimmedPairName in a parent scope if you want to re-use it here.
         plotData();
+        document.getElementById["loadSection"].className='hideMe'
         })
         .catch(error => {
             console.error('Error:', error);
