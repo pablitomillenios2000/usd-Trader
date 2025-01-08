@@ -1,6 +1,12 @@
 let titleContents = '';
 let trimmedPairName = '';
 
+// A small helper to read the URL parameter
+function getQueryParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+}
+
 function setTitleWithPairName() {
     // First, fetch the pair name
     fetch('./output/pairname.txt?' + Math.random())
@@ -10,9 +16,6 @@ function setTitleWithPairName() {
             
             // Only proceed if pairName is not empty
             if (trimmedPairName) {
-                // Update the document title
-                //document.title = `PRODUCTION - ${trimmedPairName} Data Chart`;
-
                 // Now fetch the equity value
                 return fetch('./output/equity.txt?' + Math.random());
             } else {
@@ -26,11 +29,13 @@ function setTitleWithPairName() {
             // If you have a global or higher-scoped variable for titleContents:
             titleContents = `PRODUCTION - ${trimmedPairName} -- Equity. $${trimmedEquity}`;
             document.title = `${trimmedPairName} -- $${trimmedEquity}`;
-            // Alternatively:
-            // titleContents = `PRODUCTION - ${trimmedPairName} Equity. $${trimmedEquity}`;
-            // Make sure to store trimmedPairName in a parent scope if you want to re-use it here.
-        plotData();
-        //document.getElementById["loadSection"].className='hideMe'
+
+            // After updating title, call plotData.
+            // Determine whether the user wants a logarithmic scale
+            const logParam = getQueryParam('log');
+            const logarithmicMode = (logParam === '1');
+            
+            plotData(logarithmicMode);
         })
         .catch(error => {
             console.error('Error:', error);
@@ -38,7 +43,7 @@ function setTitleWithPairName() {
 }
 
 
-function plotData() {
+function plotData(logarithmic = false) {
     // Variables to skip loading certain files
     const loadEMA = true;       // Set to false to skip loading expma.txt
     const loadEMAMicro = false; // Set to false to skip loading expma_micro.txt
@@ -47,8 +52,9 @@ function plotData() {
     // Set the slope display interval
     const slopeDisplayInterval = 0; // 0 = skip slopes
 
-    // Variable to control logarithmic scale for portfolio value
-    const logarithmic = false; // Set to false for linear scale
+    // **Use the passed-in parameter** for log vs linear
+    // const logarithmic = false; // <-- We remove this line,
+    // and rely on the function argument instead.
 
     // Variable to toggle display of margin data
     const showMargin = false; // Set to true to display margin data
@@ -467,7 +473,7 @@ function plotData() {
                 side: 'right',
                 overlaying: 'y',
                 showgrid: false,
-                type: logarithmic ? 'log' : 'linear',
+                type: logarithmic ? 'log' : 'linear', // <--- Use the function argument
             },
             legend: {
                 x: 0,
@@ -488,6 +494,5 @@ function plotData() {
     }
 }
 
-// Call the functions
+// Call the function (which in turn calls plotData with the correct log param)
 setTitleWithPairName();
-//plotData();
