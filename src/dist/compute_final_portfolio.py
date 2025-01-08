@@ -1,6 +1,5 @@
-# Updated Version on January 6th 2025 to reflect compound interest costs
-# Trading fees are paid separately in BNB; thus, fees do not reduce portfolio value.
-# However, we still track the total fees (in fiat equivalent) in total_fees_cost.
+# Computes interest
+# Fees are only for the costs.txt since they are in bnb
 
 import os
 import json5
@@ -168,14 +167,28 @@ def save_portfolio_data(portfolio_data, file_path):
         for timestamp, value in portfolio_data:
             f.write(f"{timestamp},{value:.2f}\n")
 
+def format_with_upticks(value, currency="$usdc"):
+    """
+    Convert a float to a string with 2 decimal places and 
+    use upticks `'` for thousands separators, then append a currency unit.
+    
+    Example:
+       1234567.89 -> "1'234'567.89 $usdc"
+    """
+    # Format the number with commas for thousands
+    base_formatted = "{:,.2f}".format(value)  # e.g. "1,234,567.89"
+    # Replace commas with upticks
+    with_upticks = base_formatted.replace(",", "'")  # e.g. "1'234'567.89"
+    # Add the currency unit
+    return f"{with_upticks} {currency}"
+
 def save_costs_data(total_interest_cost, total_fees_cost, file_path):
     """
-    Save cost variables to a file.
-    Expand or modify the format if needed.
+    Save cost variables to a file, with upticks and currency appended.
     """
     with open(file_path, "w") as f:
-        f.write(f"total_interest_cost,{total_interest_cost:.2f}\n")
-        f.write(f"total_fees_cost,{total_fees_cost:.2f}\n")
+        f.write(f"total_interest_cost,{format_with_upticks(total_interest_cost, '$usdc')}\n")
+        f.write(f"total_fees_cost,{format_with_upticks(total_fees_cost, '$usdc')}\n")
 
 def main():
     os.makedirs(os.path.dirname(PORTFOLIO_FILE), exist_ok=True)
