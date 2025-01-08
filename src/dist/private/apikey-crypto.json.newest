@@ -6,7 +6,7 @@
     "number_sim_orders":2,
     "account_shared_x":"1",
     "margin_annual_interest_percentage": 6.12,
-    "trade_fee_percentage": 0.095, //commission for buy and also for sell, in percentage
+    "trade_fee_percentage": 0.0713, //commission for buy and also for sell, in percentage
     "investment": 700,
     "margin": 4, //4x margin
     "sl_percentage": 1.5,
