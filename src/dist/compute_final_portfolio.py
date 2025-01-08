@@ -113,7 +113,7 @@ def process_events(events, price_dict, investment, margin, annual_interest_rate,
 
             if data == 'buy':
                 # Buy with all available cash plus margin
-                total_funds = cash_balance + (cash_balance * margin)
+                total_funds = cash_balance + (cash_balance * margin) # 4x --> 5x. Checked on Excel
                 
                 # Calculate fee but do NOT deduct from portfolio
                 fee = total_funds * trade_fee_percentage
