@@ -5,8 +5,8 @@ import hashlib
 import json
 
 # Binance API credentials
-API_KEY = "your_api_key_here"
-SECRET_KEY = "your_secret_key_here"
+API_KEY = ""
+SECRET_KEY = ""
 
 # Binance API endpoint
 BASE_URL = "https://api.binance.com"
@@ -16,6 +16,7 @@ ENDPOINT = "/sapi/v1/broker/subAccount/bnbBurn/marginInterest"
 params = {
     "interestBNBBurn": "true",  # Set to "true" to enable BNB burn
     "timestamp": int(time.time() * 1000),
+    "subAccountId": 1047209830,
 }
 
 # Create the signature
