@@ -1,5 +1,6 @@
 # Computes interest
 # Fees are only for the costs.txt since they are in bnb
+# there is a breakdown of costs in the view/output/costs.txt
 
 
 import os
