@@ -1,4 +1,4 @@
-# Crypto Trader V 2.7
+# Crypto Trader V 3.0
 
 ![Crypto](./docs/img/crypto.png)
 
