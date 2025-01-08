@@ -1,6 +1,7 @@
 # Computes interest
 # Fees are only for the costs.txt since they are in bnb
 
+
 import os
 import json5
 from datetime import datetime
@@ -88,8 +89,6 @@ def process_events(events, price_dict, investment, margin, annual_interest_rate,
     last_net_value = investment
 
     for timestamp, event_type, data in events:
-        current_timestamp = datetime.fromtimestamp(timestamp)
-
         # First, accrue interest since the last event (if any)
         if last_timestamp is not None:
             time_diff = timestamp - last_timestamp
@@ -107,22 +106,22 @@ def process_events(events, price_dict, investment, margin, annual_interest_rate,
             portfolio_data.append((timestamp, net_value))
 
         elif event_type == 'trade':
-            # We get the latest known closing price
+            # Get the latest known price for the trade timestamp
             closing_price = price_dict[timestamp]
 
             if data == 'buy':
                 # Buy with all available cash plus margin
                 total_funds = cash_balance + (cash_balance * margin)
                 
-                # Calculate the notional fee but do NOT deduct from funds
+                # Calculate fee but do NOT deduct from portfolio
                 fee = total_funds * trade_fee_percentage
                 total_fees_cost += fee
                 
-                # Use all funds for shares
+                # Buy shares with all available funds
                 shares_to_buy = total_funds / closing_price
                 number_of_shares += shares_to_buy
 
-                # Debt is the borrowed part of the total_funds
+                # Borrowed amount
                 borrowed = total_funds - cash_balance
                 debt += borrowed
 
@@ -133,14 +132,14 @@ def process_events(events, price_dict, investment, margin, annual_interest_rate,
                 # Sell all shares
                 proceeds = number_of_shares * closing_price
 
-                # Fee is on the proceeds but again we do NOT deduct from them
+                # Fee on the proceeds (but not deducted from portfolio)
                 fee = proceeds * trade_fee_percentage
                 total_fees_cost += fee
 
-                # We reset our shares
+                # Reset our shares
                 number_of_shares = 0.0
 
-                # Use proceeds to pay down debt first
+                # Use proceeds to pay debt first
                 if proceeds >= debt:
                     cash_balance += proceeds - debt
                     debt = 0.0
@@ -148,7 +147,7 @@ def process_events(events, price_dict, investment, margin, annual_interest_rate,
                     debt -= proceeds
                     cash_balance = 0.0
 
-            # Recalculate net value after the trade
+            # Recalculate net value
             net_value = (number_of_shares * closing_price + cash_balance - debt)
             last_net_value = net_value
             portfolio_data.append((timestamp, net_value))
@@ -182,13 +181,21 @@ def format_with_upticks(value, currency="$usdc"):
     # Add the currency unit
     return f"{with_upticks} {currency}"
 
-def save_costs_data(total_interest_cost, total_fees_cost, file_path):
+def save_costs_data(
+    total_interest_cost, 
+    total_fees_cost, 
+    final_portfolio_value, 
+    portfolio_including_fees, 
+    file_path
+):
     """
     Save cost variables to a file, with upticks and currency appended.
     """
     with open(file_path, "w") as f:
         f.write(f"total_interest_cost,{format_with_upticks(total_interest_cost, '$usdc')}\n")
         f.write(f"total_fees_cost,{format_with_upticks(total_fees_cost, '$usdc')}\n")
+        f.write(f"final_portfolio,{format_with_upticks(final_portfolio_value, '$usdc')}\n")
+        f.write(f"portfolio_including_fees,{format_with_upticks(portfolio_including_fees, '$usdc')}\n")
 
 def main():
     os.makedirs(os.path.dirname(PORTFOLIO_FILE), exist_ok=True)
@@ -206,12 +213,24 @@ def main():
         events, price_dict, investment, margin, annual_interest_rate, trade_fee_percentage
     )
 
+    # The final portfolio value is the net_value from the last entry in portfolio_data
+    final_portfolio_value = portfolio_data[-1][1] if portfolio_data else 0.0
+
+    # Portfolio value minus the total fees cost
+    portfolio_including_fees = final_portfolio_value - total_fees_cost
+
     # Save portfolio results
     save_portfolio_data(portfolio_data, PORTFOLIO_FILE)
     print(f"Portfolio data saved to {PORTFOLIO_FILE}")
 
-    # Save cost results
-    save_costs_data(total_interest_cost, total_fees_cost, COSTS_FILE)
+    # Save cost results (now includes final_portfolio and portfolio_including_fees)
+    save_costs_data(
+        total_interest_cost, 
+        total_fees_cost,
+        final_portfolio_value,
+        portfolio_including_fees,
+        COSTS_FILE
+    )
     print(f"Costs data saved to {COSTS_FILE}")
 
 if __name__ == "__main__":
