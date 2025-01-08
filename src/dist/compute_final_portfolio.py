@@ -9,6 +9,7 @@ API_KEY_FILE = "apikey-crypto.json"
 ASSET_FILE = "../view/output/asset.txt"
 TRADES_FILE = "../view/output/trades.txt"
 PORTFOLIO_FILE = "../view/output/portfolio.txt"
+COSTS_FILE = "../view/output/costs.txt"
 
 def load_api_data(file_path):
     """Load API key data with investment, margin, annual interest rate, and trade fee."""

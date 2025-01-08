@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 import json5
+import json
 import math
 import time
 import datetime
@@ -127,7 +128,8 @@ try:
 
         print(f"Placing SELL order {i}/{num_orders} for {current_order_size} {asset_to_sell}...")
         order = place_order_with_retry(client, trading_pair, 'SELL', current_order_size)
-        print(f"Order {i} executed successfully. Order details: {order}")
+        print(f"Order {i} executed successfully. Order details:")
+        print(json.dumps(order, indent=4))
         time.sleep(1)  # small pause to respect rate limits
 
     # Step 7: Refresh margin account info after the sell
