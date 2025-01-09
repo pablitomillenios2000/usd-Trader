@@ -1,1 +1,1 @@
-python3 ./src/python/binance/data/misc/equity.py
+python3 ./src/dist/equity.py
