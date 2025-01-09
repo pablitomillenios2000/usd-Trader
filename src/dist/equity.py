@@ -102,7 +102,14 @@ def main():
     print(json.dumps(relevant_assets, indent=4))
 
     # --------------------------------------------------------------------------
-    # ADDITIONAL: Print estimated net equity for USDC
+    # ADDITIONAL: Print BNB netAsset if available (just one line)
+    # --------------------------------------------------------------------------
+    bnb_info = next((asset for asset in user_assets if asset["asset"] == "BNB"), None)
+    if bnb_info:
+        print(f"\nBNB netAsset: {bnb_info['netAsset']}")
+
+    # --------------------------------------------------------------------------
+    # Print estimated net equity for USDC
     # net equity = abs(netAsset(USDC)) / leverage
     # --------------------------------------------------------------------------
     usdc_info = next((asset for asset in relevant_assets if asset["asset"] == "USDC"), None)
