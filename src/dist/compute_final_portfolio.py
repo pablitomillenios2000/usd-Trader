@@ -1,7 +1,4 @@
-# Computes interest
-# Fees are only for the costs.txt since they are in bnb
-# There is a breakdown of costs in the view/output/costs.txt
-# Slippage for a 100K order was estimated, we now incorporate it using slippage_percent from the JSON
+#!/usr/bin/env python3
 
 import os
 import json5
@@ -64,7 +61,7 @@ def accrue_interest(debt, annual_interest_rate, time_diff_seconds, cash_balance)
       2) The updated cash_balance
       3) The interest accrued in this period
     
-    Now we deduct interest from USDC if possible. If not enough cash,
+    We deduct interest from USDC if possible. If there's not enough,
     the remainder is added to 'debt'.
     """
     if debt <= 0:
@@ -75,15 +72,13 @@ def accrue_interest(debt, annual_interest_rate, time_diff_seconds, cash_balance)
     seconds_per_year = 365 * 24 * 3600
     per_second_rate = (1 + annual_interest_rate) ** (1 / seconds_per_year) - 1
 
-    # Calculate interest using compound interest formula
+    # Calculate compound interest over the time_diff_seconds
     interest_for_period = debt * ((1 + per_second_rate) ** time_diff_seconds - 1)
 
-    # Now pay interest from cash_balance if possible
+    # Attempt to pay interest from USDC
     if cash_balance >= interest_for_period:
-        # Deduct interest from USDC
         cash_balance -= interest_for_period
     else:
-        # Not enough USDC to cover interest, so the remainder is added to debt
         shortfall = interest_for_period - cash_balance
         cash_balance = 0.0
         debt += shortfall
@@ -100,18 +95,16 @@ def process_events(
     slippage_percent
 ):
     """
-    Simulate trades (buy/sell) and margin interest, then produce portfolio values.
-
-    IMPORTANT:
-      - Fees are NOT deducted from the portfolio in USDC,
-        because they're paid separately in BNB.
-      - Slippage is accounted for by adjusting the buy/sell prices.
-      - Interest is deducted from USDC if possible; if not, it is added to debt.
+    Simulate trades (buy/sell) and margin interest, then produce portfolio values,
+    now with fees deducted from USDC (or added to debt if USDC is insufficient).
     
-    Returns:
-        portfolio_data (list): (timestamp, net_value)
-        total_interest_cost (float): The total interest accrued on margin
-        total_fees_cost (float): The total trading fees, paid in BNB (not deducted from USDC).
+    Steps:
+      - 'buy': use up to (cash_balance + margin * cash_balance) to buy.
+               pay fee from USDC balance.
+               if not enough USDC to pay fee, add shortfall to debt.
+      - 'sell': sell all shares, pay fee from proceeds.
+               if proceeds don't cover fee, add shortfall to debt.
+      - interest: on each price or trade event, we accrue interest on 'debt'.
     """
     number_of_shares = 0.0
     cash_balance = investment
@@ -139,65 +132,87 @@ def process_events(
 
         if event_type == 'price':
             # Update net portfolio value based on current price
-            closing_price = data
-            net_value = (number_of_shares * closing_price + cash_balance - debt)
+            current_price = data
+            net_value = number_of_shares * current_price + cash_balance - debt
             last_net_value = net_value
             portfolio_data.append((timestamp, net_value))
 
         elif event_type == 'trade':
-            # Get the latest known price for the trade timestamp
-            closing_price = price_dict[timestamp]
+            current_price = price_dict[timestamp]
 
             if data == 'buy':
-                # Effective buy price includes upward slippage
-                buy_price = closing_price * (1 + slippage_percent)
+                # Slippage: buy at a slightly higher price
+                buy_price = current_price * (1 + slippage_percent)
 
-                # Buy with all available cash + margin
-                total_funds = cash_balance + (cash_balance * margin)  # 4x => 5x total
-                
-                # Trading fee (in BNB, not deducted from USDC)
-                fee = total_funds * trade_fee_percentage
-                total_fees_cost += fee
-                
-                # Actual USDC we can use to buy (assuming we're not subtracting fees from USDC)
-                # If we wanted to pay fees in USDC, we would do: total_funds - fee
-                # But the script states fees are paid in BNB. So we do not reduce total_funds.
-                
-                # Borrowed amount
-                borrowed = total_funds - cash_balance
+                # The maximum total funds (cash + borrowed)
+                max_funds_for_buy = cash_balance * (1 + margin)
+
+                # The fee is a percentage of the *total amount we are about to deploy*
+                fee_in_usdc = max_funds_for_buy * trade_fee_percentage
+                total_fees_cost += fee_in_usdc  # track for reporting
+
+                # Pay that fee from cash if possible
+                if cash_balance >= fee_in_usdc:
+                    cash_balance -= fee_in_usdc
+                else:
+                    shortfall = fee_in_usdc - cash_balance
+                    cash_balance = 0.0
+                    debt += shortfall
+
+                # Now that we've paid the fee, the actual funds left to buy with:
+                actual_funds_for_buy = max_funds_for_buy - fee_in_usdc
+
+                # Borrowed portion is whatever we used beyond our new cash_balance
+                # But be careful, we just subtracted some fee from cash_balance, so:
+                #   borrowed = (actual_funds_for_buy) - (cash_balance before paying fee).
+                # It's simpler to just say:
+                borrowed = actual_funds_for_buy - (cash_balance)
+                if borrowed < 0:
+                    borrowed = 0.0  # means we didn't need to borrow
+
                 debt += borrowed
 
-                # The entire total_funds is used to buy
-                shares_to_buy = total_funds / buy_price
+                # Buy shares
+                shares_to_buy = 0.0
+                if buy_price > 0:
+                    shares_to_buy = actual_funds_for_buy / buy_price
                 number_of_shares += shares_to_buy
 
-                # After buying, cash is depleted
+                # We used all available funds to buy
                 cash_balance = 0.0
 
             elif data == 'sell':
-                # Effective sell price includes downward slippage
-                sell_price = closing_price * (1 - slippage_percent)
-                
+                # Slippage: sell at a slightly lower price
+                sell_price = current_price * (1 - slippage_percent)
+
                 # Sell all shares
                 proceeds = number_of_shares * sell_price
 
-                # Fee on the proceeds (paid in BNB)
-                fee = proceeds * trade_fee_percentage
-                total_fees_cost += fee
+                # Fee is a percentage of the total proceeds
+                fee_in_usdc = proceeds * trade_fee_percentage
+                total_fees_cost += fee_in_usdc
 
-                # Reset our shares
+                # Reset shares
                 number_of_shares = 0.0
 
-                # Use proceeds to pay debt first
-                if proceeds >= debt:
-                    cash_balance += (proceeds - debt)
+                if proceeds >= fee_in_usdc:
+                    net_after_fee = proceeds - fee_in_usdc
+                else:
+                    # Not enough to cover fee => shortfall goes to debt
+                    shortfall = fee_in_usdc - proceeds
+                    net_after_fee = 0.0
+                    debt += shortfall
+
+                # Use net proceeds to pay down debt first
+                if net_after_fee >= debt:
+                    cash_balance += (net_after_fee - debt)
                     debt = 0.0
                 else:
-                    debt -= proceeds
-                    cash_balance = 0.0
+                    debt -= net_after_fee
+                    cash_balance += 0.0
 
-            # Recalculate net value
-            net_value = (number_of_shares * closing_price + cash_balance - debt)
+            # Recompute net value
+            net_value = number_of_shares * current_price + cash_balance - debt
             last_net_value = net_value
             portfolio_data.append((timestamp, net_value))
 
@@ -219,12 +234,9 @@ def format_with_upticks(value, currency="$usdc"):
     """
     Convert a float to a string with 2 decimal places and 
     use upticks `'` for thousands separators, then append a currency unit.
-    
-    Example:
-       1234567.89 -> "1'234'567.89 $usdc"
     """
-    base_formatted = "{:,.2f}".format(value)  # e.g. "1,234,567.89"
-    with_upticks = base_formatted.replace(",", "'")  # e.g. "1'234'567.89"
+    base_formatted = "{:,.2f}".format(value)
+    with_upticks = base_formatted.replace(",", "'")
     return f"{with_upticks} {currency}"
 
 def save_costs_data(
@@ -246,20 +258,23 @@ def save_costs_data(
 def main():
     os.makedirs(os.path.dirname(PORTFOLIO_FILE), exist_ok=True)
 
-    # Load data
-    (investment, 
-     margin, 
-     annual_interest_rate, 
-     trade_fee_percentage, 
-     slippage_percent) = load_api_data(API_KEY_FILE)
+    # Load config
+    (
+        investment, 
+        margin, 
+        annual_interest_rate, 
+        trade_fee_percentage, 
+        slippage_percent
+    ) = load_api_data(API_KEY_FILE)
      
+    # Load data
     price_dict, asset_events = load_asset_data(ASSET_FILE)
     trade_events = load_trade_data(TRADES_FILE)
 
-    # Merge all events and sort by timestamp
+    # Merge all events by timestamp
     events = sorted(asset_events + trade_events, key=lambda x: x[0])
 
-    # Process trades, track portfolio values and costs
+    # Run the simulation
     portfolio_data, total_interest_cost, total_fees_cost = process_events(
         events, 
         price_dict, 
@@ -270,17 +285,18 @@ def main():
         slippage_percent
     )
 
-    # The final portfolio value is the net_value from the last entry in portfolio_data
+    # Final portfolio value
     final_portfolio_value = portfolio_data[-1][1] if portfolio_data else 0.0
 
-    # Portfolio value minus the total fees cost
-    portfolio_including_fees = final_portfolio_value - total_fees_cost
+    # A convenience metric: final minus total_fees, if you want to see
+    # the effect of fees netted out of the final
+    portfolio_including_fees = final_portfolio_value  # Because we already deducted fees
 
     # Save portfolio results
     save_portfolio_data(portfolio_data, PORTFOLIO_FILE)
     print(f"Portfolio data saved to {PORTFOLIO_FILE}")
 
-    # Save cost results (now includes final_portfolio and portfolio_including_fees)
+    # Save cost results
     save_costs_data(
         total_interest_cost, 
         total_fees_cost,
