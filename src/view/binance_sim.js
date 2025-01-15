@@ -1,6 +1,3 @@
-let titleContents = '';
-let trimmedPairName = '';
-
 // A small helper to read the URL parameter
 function getQueryParam(param) {
     const urlParams = new URLSearchParams(window.location.search);
@@ -26,12 +23,10 @@ function setTitleWithPairName() {
         .then(response => response.text())
         .then(equityValue => {
             const trimmedEquity = equityValue.trim();
-            // If you have a global or higher-scoped variable for titleContents:
             titleContents = `PRODUCTION - ${trimmedPairName} -- Equity. $${trimmedEquity}`;
             document.title = `${trimmedPairName} -- $${trimmedEquity}`;
 
             // After updating title, call plotData.
-            // Determine whether the user wants a logarithmic scale
             const logParam = getQueryParam('log');
             const logarithmicMode = (logParam === '1');
             
@@ -52,32 +47,22 @@ function plotData(logarithmic = false) {
     // Set the slope display interval
     const slopeDisplayInterval = 0; // 0 = skip slopes
 
-    // **Use the passed-in parameter** for log vs linear
-    // const logarithmic = false; // <-- We remove this line,
-    // and rely on the function argument instead.
-
-    // Variable to toggle display of margin data
+    // Toggle display of margin data
     const showMargin = false; // Set to true to display margin data
 
-    // Arrays for data (raw timestamps as integers)
+    // Arrays for data
     const timestampsAsset = [];
     const valuesAsset = [];
-
     const timestampsPortfolio = [];
     const valuesPortfolio = [];
-
     const timestampsUntouchedPortfolio = [];
     const valuesUntouchedPortfolio = [];
-
     const timestampsEMA = [];
     const valuesEMA = [];
-
     const timestampsEMAMicro = [];
     const valuesEMAMicro = [];
-
     const timestampsSlopes = [];
     const slopes = [];
-
     const timestampsMargin = [];
     const valuesMargin = [];
 
@@ -88,11 +73,9 @@ function plotData(logarithmic = false) {
     const buyTimestamps = [];
     const buyValues = [];
     const buyReasons = [];
-
     const sellTimestamps = [];
     const sellValues = [];
     const sellReasons = [];
-
     let showTrades = true;  // Will be set to false if too many trades
 
     // Thresholds
@@ -103,7 +86,6 @@ function plotData(logarithmic = false) {
         { value: 4000000000, label: '4B', color: '#00008B' }
     ];
     let thresholdTraces = [];
-
     let shapes = [];
     let annotations = [];
 
@@ -129,7 +111,11 @@ function plotData(logarithmic = false) {
         });
     }
 
-    // Parse each file concurrently. Some are conditional
+    // Decide which portfolio file to load based on &bnb=1
+    const bnbParam = getQueryParam('bnb');
+    const portfolioFile = (bnbParam === '1') ? 'portfolio_bnb.txt' : 'portfolio.txt';
+
+    // Parse each file concurrently
     const parsePromises = [];
 
     // TRADES
@@ -145,9 +131,9 @@ function plotData(logarithmic = false) {
         })
     );
 
-    // PORTFOLIO
+    // PORTFOLIO (use portfolioFile determined above)
     parsePromises.push(
-        parseCSV('./output/portfolio.txt?' + Math.random(), (data) => {
+        parseCSV(`./output/${portfolioFile}?` + Math.random(), (data) => {
             data.forEach(row => {
                 if (row.length < 2) return;
                 const [timestamp, value] = row;
@@ -325,8 +311,8 @@ function plotData(logarithmic = false) {
     function createChart() {
         const lineStyle = {
             shape: 'spline',  // smooth lines
-            smoothing: 1.3,   // adjust smoothing factor as needed
-            width: 2          // thicker line for clarity on 4K
+            smoothing: 1.3,
+            width: 2
         };
 
         const traces = [];
@@ -454,7 +440,7 @@ function plotData(logarithmic = false) {
             });
         }
 
-        // IMPORTANT: Push threshold traces LAST so they appear on top
+        // Threshold traces last
         if (thresholdTraces.length > 0) {
             traces.push(...thresholdTraces);
         }
@@ -473,7 +459,7 @@ function plotData(logarithmic = false) {
                 side: 'right',
                 overlaying: 'y',
                 showgrid: false,
-                type: logarithmic ? 'log' : 'linear', // <--- Use the function argument
+                type: logarithmic ? 'log' : 'linear',
             },
             legend: {
                 x: 0,
@@ -485,14 +471,13 @@ function plotData(logarithmic = false) {
             shapes: shapes,
         };
 
-        // Higher pixel ratio for sharper lines on 4K
         const config = {
-            plotGlPixelRatio: 5  // try 2 or 3 depending on your performance needs
+            plotGlPixelRatio: 5
         };
 
         Plotly.newPlot('chart', traces, layout, config);
     }
 }
 
-// Call the function (which in turn calls plotData with the correct log param)
+// Call the function
 setTitleWithPairName();
