@@ -4,10 +4,10 @@
     "pair":"SUIUSDC",
     "exchange":"Home",
     "number_sim_orders":2,
-    "slippage_percent":0.1,
+    "slippage_percent":0.025,
     "account_shared_x":"1",
     "margin_annual_interest_percentage": 6.12, //6.12
-    "trade_fee_percentage": 0.0713, //commission for buy and also for sell, in percentage
+    "trade_fee_percentage": 0.075, //commission for buy and also for sell, in percentage
     "investment": 150, //initial investment in usdc
     "margin": 4, // 4x is in reality 5x (1x base + 4x borrow)
     "sl_percentage": 1.5,
