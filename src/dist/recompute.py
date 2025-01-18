@@ -27,8 +27,8 @@ os.system("python3 ./compute_trades_trailsl_localmin.py")
 # os.system("python3 ./compute_margin_requirement.py")
 #os.system("python3 ./tradedirectionfilter.py") #filters non-steep
 os.system("python3 ./compute_unt_portfolio.py")
-os.system("python3 ./compute_final_portfolio.py")
 os.system("python3 ./compute_final_portfolio_using_bnb.py")
+os.system("python3 ./compute_final_portfolio.py")
 os.system("bash ./compress_all.sh")
 
 # Execute the command
