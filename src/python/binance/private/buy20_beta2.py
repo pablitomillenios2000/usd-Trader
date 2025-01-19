@@ -13,6 +13,7 @@ from binance.client import Client
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 
 BASE_URL = 'https://api.binance.com'
+SLIPPAGE_FILE = '/home/g1pablo_escaida1/CRYPTO-Trader/src/view/output/slippage.txt'
 
 # ------------------- HELPER FUNCTIONS ------------------- #
 def parse_pair(pair: str):
@@ -125,6 +126,16 @@ def place_order_with_retry(client, trading_pair, order_size, max_retries=3):
 
     raise Exception("Failed to place order after several timestamp errors.")
 
+def write_slippage_to_file(slippage_percent):
+    """
+    Append the slippage (in percentage) to SLIPPAGE_FILE with a timestamp.
+    """
+    try:
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(SLIPPAGE_FILE, "a") as f:
+            f.write(f"{now_str} - Slippage: {slippage_percent:.4f}%\n")
+    except Exception as e:
+        print(f"[ERROR] Could not write slippage to file: {e}")
 
 # ------------------- MAIN SCRIPT ------------------- #
 def main():
@@ -171,7 +182,7 @@ def main():
             print("[WARNING] Could not get price. Equity calc may be inaccurate.")
 
         # ------------------------------------------------------------
-        # 6) Calculate total equity in QUOTE 
+        # 6) Calculate total equity in QUOTE
         #    - If account_shared_x == 1 => only use netAsset(USDC)
         #    - Else => netAsset(USDC) + netAsset(BASE)*price
         # ------------------------------------------------------------
@@ -244,11 +255,35 @@ def main():
 
         print(f"[INFO] Placing {num_orders} BUY orders, each for {order_size} {quote_symbol}...")
 
-        for i in range(1, num_orders+1):
+        for i in range(1, num_orders + 1):
+            # Capture the price just before placing each order:
+            price_before_order = get_price_from_binance(trading_pair)
+
             try:
                 print(f" - Order {i}/{num_orders} => {order_size} {quote_symbol}")
                 order_resp = place_order_with_retry(client, trading_pair, order_size)
                 print(f"   [OK] orderId={order_resp.get('orderId')}")
+
+                # ------------------
+                # Calculate slippage
+                # ------------------
+                # For a filled order, we can calculate:
+                # average fill price = cummulativeQuoteQty / executedQty
+                executed_qty_str   = order_resp.get('executedQty', '0')
+                cumm_quote_qty_str = order_resp.get('cummulativeQuoteQty', '0')
+                try:
+                    executed_qty   = float(executed_qty_str)
+                    cumm_quote_qty = float(cumm_quote_qty_str)
+                    if executed_qty > 0:
+                        avg_fill_price = cumm_quote_qty / executed_qty
+                        # slippage% = ((fill_price - expected_price) / expected_price) * 100
+                        slippage = ((avg_fill_price - price_before_order) / price_before_order) * 100
+                        write_slippage_to_file(slippage)
+                    else:
+                        print("[WARNING] No executed quantity; cannot compute slippage.")
+                except ValueError:
+                    print("[ERROR] Could not parse fill quantities for slippage calculation.")
+
                 time.sleep(1)
             except Exception as e:
                 print(f"[ERROR] Could not place order {i}: {e}")
