@@ -34,16 +34,14 @@ BASE_URL = 'https://api.binance.com'
 def parse_base_token(pair_str):
     """
     If pair_str is like 'HBARUSDC', strip 'USDC' -> 'HBAR'.
-    If the pair doesn't end with 'USDC', you can adapt the logic.
+    If the pair doesn't end with 'USDC', adapt the logic accordingly.
     """
     pair_str = pair_str.upper()
     if pair_str.endswith("USDC"):
-        # remove trailing "USDC" -> "HBAR"
         return pair_str[:-4]
-    # fallback if format is different
+    # Fallback if format is different
     return pair_str
 
-# Extract base token from the pair (e.g. "HBARUSDC" -> "HBAR")
 base_token = parse_base_token(full_pair)
 
 # ------------------------------------------------------------------------------
@@ -91,37 +89,49 @@ def main():
     user_assets = account_info.get("userAssets", [])
 
     # We want to filter for base token (e.g., "HBAR") + "USDC"
-    # e.g., if base_token="HBAR", we want to see "HBAR" and "USDC"
     relevant_assets = [
         asset for asset in user_assets
         if asset["asset"] in [base_token.upper(), "USDC"]
     ]
 
-    # Print the filtered information in JSON format
+    # --------------------------------------------------------------------------
+    # Print the filtered information in JSON format (base token + USDC)
+    # --------------------------------------------------------------------------
     print("\nFull Information for the Base Token and USDC:")
     print(json.dumps(relevant_assets, indent=4))
 
     # --------------------------------------------------------------------------
-    # ADDITIONAL: Print BNB netAsset if available (just one line)
+    # Print netAsset of BNB on a single line (if BNB is present)
     # --------------------------------------------------------------------------
     bnb_info = next((asset for asset in user_assets if asset["asset"] == "BNB"), None)
     if bnb_info:
         print(f"\nBNB netAsset: {bnb_info['netAsset']}")
 
     # --------------------------------------------------------------------------
-    # Print estimated net equity for USDC
-    # net equity = abs(netAsset(USDC)) / leverage
+    # Compute and print net_equity based on netAsset for USDC, with logic:
+    #   - If base_token_net_asset < 1 => net_equity = net_asset_usdc
+    #   - Else => net_equity = round(net_asset_usdc / leverage)
     # --------------------------------------------------------------------------
     usdc_info = next((asset for asset in relevant_assets if asset["asset"] == "USDC"), None)
+    base_token_info = next((asset for asset in relevant_assets if asset["asset"] == base_token.upper()), None)
+
     if usdc_info:
         try:
             net_asset_usdc = abs(float(usdc_info["netAsset"]))
-            net_equity = round(net_asset_usdc / leverage)
+            base_token_net_asset = 0.0  # Default if not found
+
+            if base_token_info:
+                base_token_net_asset = abs(float(base_token_info["netAsset"]))
+
+            # Decide how to compute net_equity
+            if base_token_net_asset < 1:
+                net_equity = net_asset_usdc
+            else:
+                net_equity = round(net_asset_usdc / leverage)
+
             print(f"\nThe estimated net equity is: ${net_equity}")
 
-            # --------------------------------------------------------------
-            # NEW STEP: Overwrite the outfile with only the net_equity value
-            # --------------------------------------------------------------
+            # Write net_equity to file
             with open(outfile, 'w') as f:
                 f.write(str(net_equity) + "\n")
 
