@@ -10,6 +10,7 @@ sudo apt install jq -y
 sudo apt install brotli -y
 pip install websocket-client --break-system-packages
 pip install websockets --break-system-packages
+pip install pipenv --break-system-packages
 #pip install python-websocket
 pip install python-binance --break-system-packages
 pip install binance --break-system-packages
